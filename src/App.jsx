@@ -31,7 +31,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
+      <Route path="/login" element={user && profile ? <Navigate to="/dashboard" /> : <Login />} />
       
       <Route element={
         <ProtectedRoute>
