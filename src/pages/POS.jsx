@@ -20,31 +20,143 @@ import {
 export default function POS() {
   const { profile, isAdmin } = useAuth();
   
-  // Client
-  const [clienteSearch, setClienteSearch] = useState('');
+  // Multi-Cuenta / Multi-Cliente simultáneo en Caja
+  const createNewCuenta = (num) => ({
+    id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 4),
+    numero: num,
+    clienteSeleccionado: null,
+    clienteSearch: '',
+    carrito: [],
+    metodosPago: [],
+    showPago: false,
+  });
+
+  const [cuentas, setCuentas] = useState(() => {
+    try {
+      const saved = localStorage.getItem('arluc_pos_cuentas');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error('Error loading saved cuentas:', e);
+    }
+    return [createNewCuenta(1)];
+  });
+
+  const [cuentaActivaId, setCuentaActivaId] = useState(() => {
+    try {
+      const savedId = localStorage.getItem('arluc_pos_cuenta_activa');
+      if (savedId) return savedId;
+    } catch (e) {}
+    return cuentas[0]?.id || '1';
+  });
+
+  // Guardar en localStorage para persistencia
+  useEffect(() => {
+    try {
+      localStorage.setItem('arluc_pos_cuentas', JSON.stringify(cuentas));
+      localStorage.setItem('arluc_pos_cuenta_activa', cuentaActivaId);
+    } catch (e) {}
+  }, [cuentas, cuentaActivaId]);
+
+  // Cuenta activa actual
+  const cuentaActiva = cuentas.find(c => c.id === cuentaActivaId) || cuentas[0] || createNewCuenta(1);
+  
+  // Extraer valores de la cuenta activa
+  const carrito = cuentaActiva?.carrito || [];
+  const clienteSeleccionado = cuentaActiva?.clienteSeleccionado || null;
+  const clienteSearch = cuentaActiva?.clienteSearch || '';
+  const metodosPago = cuentaActiva?.metodosPago || [];
+  const showPago = cuentaActiva?.showPago || false;
+
+  // Mutadores de la cuenta activa
+  const updateCuentaActiva = (updater) => {
+    setCuentas(prev => prev.map(c => {
+      if (c.id === cuentaActiva.id) {
+        return typeof updater === 'function' ? updater(c) : { ...c, ...updater };
+      }
+      return c;
+    }));
+  };
+
+  const setCarrito = (newCarrito) => {
+    updateCuentaActiva(c => ({
+      ...c,
+      carrito: typeof newCarrito === 'function' ? newCarrito(c.carrito || []) : newCarrito
+    }));
+  };
+
+  const setClienteSeleccionado = (newCliente) => {
+    updateCuentaActiva({ clienteSeleccionado: newCliente });
+  };
+
+  const setClienteSearch = (newSearch) => {
+    updateCuentaActiva({ clienteSearch: newSearch });
+  };
+
+  const setMetodosPago = (newMetodos) => {
+    updateCuentaActiva(c => ({
+      ...c,
+      metodosPago: typeof newMetodos === 'function' ? newMetodos(c.metodosPago || []) : newMetodos
+    }));
+  };
+
+  const setShowPago = (val) => {
+    updateCuentaActiva({ showPago: val });
+  };
+
+  // Búsqueda de clientes y nuevo cliente
   const [clienteResults, setClienteResults] = useState([]);
-  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [showNuevoCliente, setShowNuevoCliente] = useState(false);
   const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', documento_identidad: '', telefono: '' });
   
-  // Products
+  // Productos
   const [productoSearch, setProductoSearch] = useState('');
   const [productoResults, setProductoResults] = useState([]);
-  const [carrito, setCarrito] = useState([]);
   
-  // Exchange rate
+  // Tasa de cambio
   const [tasaHoy, setTasaHoy] = useState(null);
-  
-  // Payment
-  const [showPago, setShowPago] = useState(false);
-  const [metodosPago, setMetodosPago] = useState([]);
-  
-  // Invoice result
+
+  // Resultado de factura
   const [facturaEmitida, setFacturaEmitida] = useState(null);
   const [showTicket, setShowTicket] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const productoSearchRef = useRef(null);
+
+  function agregarNuevaCuenta() {
+    const num = cuentas.length + 1;
+    const nueva = createNewCuenta(num);
+    setCuentas(prev => [...prev, nueva]);
+    setCuentaActivaId(nueva.id);
+    toast.success(`Abierta Cuenta #${num}`);
+  }
+
+  function cerrarCuenta(idToClose, e) {
+    if (e) e.stopPropagation();
+    const c = cuentas.find(item => item.id === idToClose);
+    if (!c) return;
+
+    if (c.carrito && c.carrito.length > 0) {
+      if (!window.confirm(`La cuenta tiene ${c.carrito.length} productos en el carrito. ¿Seguro que deseas cerrarla?`)) {
+        return;
+      }
+    }
+
+    if (cuentas.length <= 1) {
+      const reset = createNewCuenta(1);
+      setCuentas([reset]);
+      setCuentaActivaId(reset.id);
+      return;
+    }
+
+    const remaining = cuentas.filter(item => item.id !== idToClose);
+    setCuentas(remaining);
+    if (cuentaActivaId === idToClose) {
+      setCuentaActivaId(remaining[0].id);
+    }
+  }
 
   // Load today's rate on mount
   useEffect(() => {
@@ -464,11 +576,15 @@ export default function POS() {
       toast.success(`Factura ${numData} emitida correctamente`);
       
       // Reset form
-      setCarrito([]);
-      setClienteSeleccionado(null);
-      setClienteSearch('');
-      setMetodosPago([]);
-      setShowPago(false);
+      if (cuentas.length > 1) {
+        const remaining = cuentas.filter(c => c.id !== cuentaActiva.id);
+        setCuentas(remaining);
+        setCuentaActivaId(remaining[0].id);
+      } else {
+        const reset = createNewCuenta(1);
+        setCuentas([reset]);
+        setCuentaActivaId(reset.id);
+      }
     } catch (error) {
       toast.error(error.message || 'Error al emitir factura');
     } finally {
@@ -516,7 +632,10 @@ export default function POS() {
   return (
     <div className="page pos-page">
       <div className="page__header">
-        <h1 className="page__title">Punto de Venta</h1>
+        <div>
+          <h1 className="page__title">Caja</h1>
+          <p className="page__subtitle">Atención y facturación simultánea a clientes</p>
+        </div>
         {tasaHoy && (
           <div className="pos-tasa" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span>Tasa BCV: <strong>Bs {formatTasa(tasaHoy.tasa_usd_bs)}</strong></span>
@@ -537,6 +656,57 @@ export default function POS() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* Barra de Cuentas / Clientes Simultáneos en Caja */}
+      <div className="pos-cuentas-bar">
+        <div className="pos-cuentas-list">
+          {cuentas.map((c, index) => {
+            const totalUSD = (c.carrito || []).reduce((sum, item) => sum + item.subtotal, 0);
+            const itemsCount = (c.carrito || []).reduce((sum, item) => sum + item.cantidad, 0);
+            const isActive = c.id === cuentaActiva.id;
+            const labelCliente = c.clienteSeleccionado ? c.clienteSeleccionado.nombre.split(' ')[0] : null;
+
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCuentaActivaId(c.id)}
+                className={`pos-cuenta-tab ${isActive ? 'pos-cuenta-tab--active' : ''}`}
+                title={`Cambiar a ${c.nombre || `Cuenta #${index + 1}`}`}
+              >
+                <span className="pos-cuenta-tab__num">#{index + 1}</span>
+                <span className="pos-cuenta-tab__label">
+                  {labelCliente ? `Cliente: ${labelCliente}` : `Cuenta ${index + 1}`}
+                </span>
+                {itemsCount > 0 ? (
+                  <span className="pos-cuenta-tab__badge">
+                    {itemsCount} art. • {formatUSD(totalUSD)}
+                  </span>
+                ) : (
+                  <span className="pos-cuenta-tab__badge" style={{ opacity: 0.6 }}>Vacía</span>
+                )}
+                {cuentas.length > 1 && (
+                  <span
+                    className="pos-cuenta-tab__close"
+                    onClick={(e) => cerrarCuenta(c.id, e)}
+                    title="Cerrar esta cuenta"
+                  >
+                    ×
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={agregarNuevaCuenta}
+            className="pos-cuenta-tab-add"
+            title="Atender a otro cliente simultáneamente (Nueva Cuenta)"
+          >
+            <HiOutlinePlus /> Nueva Cuenta
+          </button>
+        </div>
       </div>
 
       <div className="pos-layout">

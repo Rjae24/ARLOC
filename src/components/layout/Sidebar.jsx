@@ -21,7 +21,7 @@ import {
 
 const adminLinks = [
   { to: '/dashboard', icon: HiOutlineHome, label: 'Dashboard' },
-  { to: '/pos', icon: HiOutlineShoppingCart, label: 'Punto de Venta' },
+  { to: '/pos', icon: HiOutlineShoppingCart, label: 'Caja' },
   { to: '/reportes', icon: HiOutlineDocumentChartBar, label: 'Reportes' },
   { to: '/inventario', icon: HiOutlineCube, label: 'Inventario' },
   { to: '/clientes', icon: HiOutlineUsers, label: 'Clientes' },
@@ -35,7 +35,7 @@ const adminLinks = [
 
 
 const vendedorLinks = [
-  { to: '/pos', icon: HiOutlineShoppingCart, label: 'Punto de Venta' },
+  { to: '/pos', icon: HiOutlineShoppingCart, label: 'Caja' },
   { to: '/dashboard', icon: HiOutlineHome, label: 'Mi Dashboard' },
 ];
 

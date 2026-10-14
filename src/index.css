@@ -1126,6 +1126,138 @@ a:hover { color: var(--primary-hover); }
 }
 
 /* ============================================
+   CAJA MULTI-CUENTAS (TICKETS SIMULTÁNEOS)
+   ============================================ */
+.pos-cuentas-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.5rem 0.75rem;
+  gap: 0.75rem;
+  overflow-x: auto;
+}
+
+.pos-cuentas-list {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.pos-cuenta-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+  user-select: none;
+}
+
+.pos-cuenta-tab:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+.pos-cuenta-tab--active {
+  background: var(--primary-bg) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+  font-weight: 600;
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.pos-cuenta-tab__num {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
+  background: var(--bg-card);
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.pos-cuenta-tab--active .pos-cuenta-tab__num {
+  background: var(--primary);
+  color: white;
+}
+
+.pos-cuenta-tab__label {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pos-cuenta-tab__badge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.pos-cuenta-tab--active .pos-cuenta-tab__badge {
+  background: var(--bg-card);
+  color: var(--primary);
+}
+
+.pos-cuenta-tab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  transition: var(--transition);
+  margin-left: 0.2rem;
+}
+
+.pos-cuenta-tab__close:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.pos-cuenta-tab-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  background: transparent;
+  border: 1px dashed var(--border-light);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.pos-cuenta-tab-add:hover {
+  background: var(--primary-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ============================================
    POS LAYOUT
    ============================================ */
 .pos-page { padding-bottom: 2rem; }
