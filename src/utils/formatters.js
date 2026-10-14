@@ -74,3 +74,27 @@ export function generarSKU(nombre) {
     .substring(0, 6)
     + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
 }
+
+/**
+ * Format phone number for WhatsApp wa.me link
+ */
+export function getWhatsAppUrl(tel) {
+  if (!tel) return '';
+  let clean = tel.replace(/\D/g, '');
+  if (clean.startsWith('0') && clean.length === 11) {
+    clean = '58' + clean.slice(1);
+  } else if (!clean.startsWith('58') && clean.length === 10) {
+    clean = '58' + clean;
+  }
+  return `https://wa.me/${clean}`;
+}
+
+/**
+ * Format phone number for tel: link
+ */
+export function getPhoneCallUrl(tel) {
+  if (!tel) return '';
+  const clean = tel.replace(/[^0-9+]/g, '');
+  return `tel:${clean}`;
+}
+

@@ -1,29 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { formatFecha } from '../utils/formatters';
+import { formatFecha, getWhatsAppUrl, getPhoneCallUrl } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import Pagination from '../components/common/Pagination';
 import { HiOutlinePlus, HiOutlinePencilSquare, HiOutlineMagnifyingGlass, HiOutlineTrash } from 'react-icons/hi2';
 import { FaWhatsapp, FaPhone } from 'react-icons/fa';
 
 import ConfirmModal from '../components/common/ConfirmModal';
-
-function getWhatsAppUrl(tel) {
-  if (!tel) return '';
-  let clean = tel.replace(/\D/g, '');
-  if (clean.startsWith('0') && clean.length === 11) {
-    clean = '58' + clean.slice(1);
-  } else if (!clean.startsWith('58') && clean.length === 10) {
-    clean = '58' + clean;
-  }
-  return `https://wa.me/${clean}`;
-}
-
-function getPhoneCallUrl(tel) {
-  if (!tel) return '';
-  const clean = tel.replace(/[^0-9+]/g, '');
-  return `tel:${clean}`;
-}
 
 export default function Clientes() {
   const [clientes, setClientes] = useState([]);

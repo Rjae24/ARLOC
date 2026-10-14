@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { formatFecha } from '../utils/formatters';
+import { formatFecha, getWhatsAppUrl, getPhoneCallUrl } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { HiOutlinePlus, HiOutlinePencilSquare, HiOutlineMagnifyingGlass, HiOutlineTrash } from 'react-icons/hi2';
+import { FaWhatsapp, FaPhone } from 'react-icons/fa';
 
 export default function Proveedores() {
   const [proveedores, setProveedores] = useState([]);
@@ -107,15 +108,40 @@ export default function Proveedores() {
         <div className="table-container">
           <table className="table">
             <thead>
-              <tr><th>Nombre</th><th>RIF</th><th>Teléfono</th><th>Contacto</th><th>Estado</th><th>Acciones</th></tr>
+              <tr><th>Nombre</th><th>RIF</th><th>Teléfono</th><th>Estado</th><th>Acciones</th></tr>
             </thead>
             <tbody>
               {paginados.map(p => (
                 <tr key={p.id}>
                   <td>{p.nombre}</td>
                   <td><code>{p.rif}</code></td>
-                  <td>{p.telefono || '—'}</td>
-                  <td>{p.contacto_nombre || '—'}</td>
+                  <td>
+                    {p.telefono ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span>{p.telefono}</span>
+                        <a
+                          href={getWhatsAppUrl(p.telefono)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn--ghost btn--xs"
+                          style={{ color: '#25D366', padding: '2px 5px', fontSize: '0.9rem' }}
+                          title="Enviar WhatsApp"
+                        >
+                          <FaWhatsapp />
+                        </a>
+                        <a
+                          href={getPhoneCallUrl(p.telefono)}
+                          className="btn btn--ghost btn--xs"
+                          style={{ color: '#3B82F6', padding: '2px 5px', fontSize: '0.75rem' }}
+                          title="Llamar"
+                        >
+                          <FaPhone />
+                        </a>
+                      </div>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td><span className={`badge ${p.activo ? 'badge--success' : 'badge--ghost'}`}>{p.activo ? 'Activo' : 'Inactivo'}</span></td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -125,7 +151,7 @@ export default function Proveedores() {
                   </td>
                 </tr>
               ))}
-              {filtrados.length === 0 && <tr><td colSpan="6" className="table__empty">No se encontraron proveedores</td></tr>}
+              {filtrados.length === 0 && <tr><td colSpan="5" className="table__empty">No se encontraron proveedores</td></tr>}
             </tbody>
           </table>
         </div>
@@ -150,9 +176,9 @@ export default function Proveedores() {
                 <div className="form-group"><label>Teléfono</label><input value={form.telefono} onChange={e => setForm({...form, telefono: e.target.value})} /></div>
                 <div className="form-group"><label>Email</label><input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} /></div>
               </div>
-              <div className="form-row">
-                <div className="form-group"><label>Contacto</label><input value={form.contacto_nombre} onChange={e => setForm({...form, contacto_nombre: e.target.value})} /></div>
-                <div className="form-group"><label>Dirección</label><input value={form.direccion} onChange={e => setForm({...form, direccion: e.target.value})} /></div>
+              <div className="form-group">
+                <label>Dirección</label>
+                <input value={form.direccion} onChange={e => setForm({...form, direccion: e.target.value})} />
               </div>
               <div className="form-group">
                 <label className="checkbox-label"><input type="checkbox" checked={form.activo} onChange={e => setForm({...form, activo: e.target.checked})} /> Proveedor activo</label>
