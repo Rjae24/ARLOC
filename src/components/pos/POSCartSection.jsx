@@ -41,43 +41,50 @@ export default function POSCartSection({
         <div className="pos-cart">
           {carrito.map((item) => (
             <div key={item.producto_id} className="pos-cart-item">
-              <div className="pos-cart-item__info">
-                <span className="pos-cart-item__name">{item.producto_nombre}</span>
-                <span className="pos-cart-item__price">{formatUSD(item.precio_unitario)} c/u</span>
-              </div>
-              <div className="pos-cart-item__controls">
+              <div className="pos-cart-item__main">
+                <div className="pos-cart-item__info">
+                  <span className="pos-cart-item__name">{item.producto_nombre}</span>
+                  <span className="pos-cart-item__price">{formatUSD(item.precio_unitario)} c/u</span>
+                </div>
                 <button
                   type="button"
-                  className="btn btn--ghost btn--xs"
-                  onClick={() => onActualizarCantidad(item.producto_id, item.cantidad - 1)}
+                  className="btn btn--ghost btn--xs text-danger pos-cart-item__trash"
+                  onClick={() => onQuitarDelCarrito(item.producto_id)}
+                  title="Eliminar producto"
                 >
-                  −
-                </button>
-                <input
-                  type="number"
-                  className="pos-cart-item__qty"
-                  value={item.cantidad}
-                  min={1}
-                  max={item.stock_disponible}
-                  onChange={(e) => onActualizarCantidad(item.producto_id, parseInt(e.target.value) || 1)}
-                />
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--xs"
-                  onClick={() => onActualizarCantidad(item.producto_id, item.cantidad + 1)}
-                >
-                  +
+                  <HiOutlineTrash />
                 </button>
               </div>
-              <span className="pos-cart-item__subtotal">{formatUSD(item.subtotal)}</span>
-              <button
-                type="button"
-                className="btn btn--ghost btn--xs text-danger"
-                onClick={() => onQuitarDelCarrito(item.producto_id)}
-                title="Eliminar producto"
-              >
-                <HiOutlineTrash />
-              </button>
+
+              <div className="pos-cart-item__actions">
+                <div className="pos-cart-item__controls">
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--xs pos-qty-btn"
+                    onClick={() => onActualizarCantidad(item.producto_id, item.cantidad - 1)}
+                    title="Disminuir cantidad"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    className="pos-cart-item__qty"
+                    value={item.cantidad}
+                    min={1}
+                    max={item.stock_disponible}
+                    onChange={(e) => onActualizarCantidad(item.producto_id, parseInt(e.target.value) || 1)}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--xs pos-qty-btn"
+                    onClick={() => onActualizarCantidad(item.producto_id, item.cantidad + 1)}
+                    title="Aumentar cantidad"
+                  >
+                    +
+                  </button>
+                </div>
+                <span className="pos-cart-item__subtotal">{formatUSD(item.subtotal)}</span>
+              </div>
             </div>
           ))}
         </div>
