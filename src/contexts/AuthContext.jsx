@@ -11,41 +11,24 @@ export function AuthProvider({ children }) {
   const initializedRef = useRef(false);
 
   const fetchProfile = useCallback(async (userId) => {
-    // Prevent concurrent fetches
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
-
     try {
       const { data, error } = await supabase
         .from('usuarios')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        console.warn('Profile fetch error, retrying...', error.message);
-        // Retry once after a small delay (RLS might need the session to propagate)
-        await new Promise(r => setTimeout(r, 500));
-        const { data: retryData, error: retryError } = await supabase
-          .from('usuarios')
-          .select('*')
-          .eq('id', userId)
-          .single();
-        
-        if (retryError) {
-          console.error('Profile fetch failed after retry:', retryError.message);
-          setProfile(null);
-        } else {
-          setProfile(retryData);
-        }
+        console.warn('Profile fetch warning:', error.message);
+        setProfile(null);
       } else {
         setProfile(data);
       }
+      return data;
     } catch (error) {
       console.error('Error fetching profile:', error);
       setProfile(null);
     } finally {
-      fetchingRef.current = false;
       setLoading(false);
     }
   }, []);
@@ -71,13 +54,12 @@ export function AuthProvider({ children }) {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
-        if (event === 'SIGNED_IN' && currentUser) {
+        if (currentUser) {
           fetchProfile(currentUser.id);
         } else if (event === 'SIGNED_OUT') {
           setProfile(null);
           setLoading(false);
         }
-        // Ignore TOKEN_REFRESHED and other events to prevent loops
       }
     );
 
@@ -86,32 +68,35 @@ export function AuthProvider({ children }) {
 
   async function signIn(email, password) {
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      setLoading(false);
-      throw error;
-    }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
 
-    // Verify user is active in the public users table
-    if (data?.user?.id) {
-      const { data: profileData } = await supabase
-        .from('usuarios')
-        .select('activo, nombre_completo')
-        .eq('id', data.user.id)
-        .single();
+      if (data?.user?.id) {
+        setUser(data.user);
+        const { data: profileData } = await supabase
+          .from('usuarios')
+          .select('*')
+          .eq('id', data.user.id)
+          .maybeSingle();
 
-      if (profileData && profileData.activo === false) {
-        // User is deactivated — sign out immediately
-        await supabase.auth.signOut();
-        setLoading(false);
-        throw new Error('Usuario desactivado. Contacte al administrador del sistema.');
+        if (profileData && profileData.activo === false) {
+          await supabase.auth.signOut();
+          setUser(null);
+          setProfile(null);
+          throw new Error('Usuario desactivado. Contacte al administrador del sistema.');
+        }
+
+        setProfile(profileData || null);
       }
-    }
 
-    return data;
+      return data;
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function signOut() {

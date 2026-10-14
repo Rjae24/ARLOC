@@ -18,7 +18,7 @@ import Reportes from './pages/Reportes';
 import Configuracion from './pages/Configuracion';
 
 function AppRoutes() {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, profile, loading, isAdmin } = useAuth();
 
   if (loading) {
     return (

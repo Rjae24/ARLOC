@@ -46,7 +46,7 @@ export default function Dashboard() {
       let qTasa = supabase.from('tasas_cambio').select('*').order('fecha_registro', { ascending: false }).limit(1).maybeSingle();
       let qProds = isAdmin ? supabase.from('productos').select('id, nombre, sku, stock, stock_minimo').eq('activo', true) : Promise.resolve({ data: [] });
       let qVendedores = isAdmin ? supabase.from('usuarios').select('id, nombre_completo').eq('rol', 'vendedor').eq('activo', true) : Promise.resolve({ data: [] });
-      let qDetalles = supabase.from('detalles_factura').select('producto_nombre, cantidad').order('created_at', { ascending: false }).limit(250);
+      let qDetalles = supabase.from('detalles_factura').select('producto_nombre, cantidad').limit(250);
 
       if (vendedorId) {
         qHoy = qHoy.eq('vendedor_id', vendedorId);
