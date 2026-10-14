@@ -68,7 +68,6 @@ export default function Reportes() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('ventas');
   const [activePreset, setActivePreset] = useState('30d');
-  const [pageVentas, setPageVentas] = useState(1);
   const [pageInventario, setPageInventario] = useState(1);
   const [pageVendedores, setPageVendedores] = useState(1);
   const empresaConfig = getEmpresaConfig();
@@ -394,7 +393,6 @@ export default function Reportes() {
     setActivePreset(preset);
     setFechaDesde(range.desde);
     setFechaHasta(range.hasta);
-    setPageVentas(1);
     setPageVendedores(1);
   }
 
@@ -402,7 +400,6 @@ export default function Reportes() {
     setActivePreset(null);
     if (field === 'desde') setFechaDesde(value);
     else setFechaHasta(value);
-    setPageVentas(1);
   }
 
   // ── Excel (.xlsx) & PDF Exporters ─────────────────────────────────
@@ -877,47 +874,6 @@ export default function Reportes() {
                 </tbody>
               </table>
             </div>
-          </div>
-
-          {/* Invoices Log */}
-          <div className="card">
-            <h3 className="card__title">Desglose de Facturas ({ventas.length} en el período)</h3>
-            <div className="table-container">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>N° Factura</th>
-                    <th>Fecha</th>
-                    <th>Cliente</th>
-                    <th>Vendedor</th>
-                    <th style={{ textAlign: 'right' }}>Total USD</th>
-                    <th style={{ textAlign: 'right' }}>Total Bs</th>
-                    <th style={{ textAlign: 'center' }}>Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ventas.slice((pageVentas - 1) * 20, pageVentas * 20).map(f => (
-                    <tr key={f.id} className={f.estado === 'anulada' ? 'table__row--muted' : ''}>
-                      <td><code>{f.numero_factura}</code></td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{formatFecha(f.fecha_emision, true)}</td>
-                      <td>{f.clientes?.nombre || 'Consumidor Final'}</td>
-                      <td>{f.usuarios?.nombre_completo || '—'}</td>
-                      <td style={{ textAlign: 'right' }}><strong>{formatUSD(f.total_usd)}</strong></td>
-                      <td style={{ textAlign: 'right', color: '#A3A3A3' }}>{formatBs(f.total_bs)}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span className={`badge badge--${f.estado === 'emitida' ? 'success' : 'danger'}`}>
-                          {f.estado}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                  {ventas.length === 0 && (
-                    <tr><td colSpan="7" className="table__empty">No se encontraron facturas en este rango</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <Pagination currentPage={pageVentas} totalItems={ventas.length} pageSize={20} onPageChange={p => { setPageVentas(p); }} />
           </div>
         </div>
       )}
