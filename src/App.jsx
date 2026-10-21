@@ -16,6 +16,8 @@ import Usuarios from './pages/Usuarios';
 import HistorialFacturas from './pages/HistorialFacturas';
 import Reportes from './pages/Reportes';
 import Configuracion from './pages/Configuracion';
+import LibroDiario from './pages/contabilidad/LibroDiario';
+import LibroMayor from './pages/contabilidad/LibroMayor';
 
 function AppRoutes() {
   const { user, profile, loading, isAdmin } = useAuth();
@@ -57,6 +59,12 @@ function AppRoutes() {
         } />
         <Route path="/tasa-cambio" element={
           <ProtectedRoute requiereAdmin><TasaCambio /></ProtectedRoute>
+        } />
+        <Route path="/contabilidad/libro-diario" element={
+          <ProtectedRoute requiereAdmin><LibroDiario /></ProtectedRoute>
+        } />
+        <Route path="/contabilidad/libro-mayor" element={
+          <ProtectedRoute requiereAdmin><LibroMayor /></ProtectedRoute>
         } />
         <Route path="/usuarios" element={
           <ProtectedRoute requiereAdmin><Usuarios /></ProtectedRoute>

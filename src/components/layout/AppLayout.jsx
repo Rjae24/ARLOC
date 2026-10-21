@@ -16,6 +16,32 @@ export default function AppLayout() {
     setMobileOpen(false);
   }, [location.pathname]);
 
+  // Atajo de teclado global Ctrl+B para contraer/expandir el sidebar
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignorar si el usuario está escribiendo en un input, textarea o select
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        if (window.innerWidth <= 768) {
+          setMobileOpen((prev) => !prev);
+        } else {
+          setCollapsed((prev) => !prev);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleToggleMenu = () => {
+    if (window.innerWidth <= 768) {
+      setMobileOpen(true);
+    } else {
+      setCollapsed((prev) => !prev);
+    }
+  };
+
   return (
     <div className={`app-layout ${collapsed ? 'app-layout--collapsed' : ''}`}>
       <Sidebar
@@ -28,8 +54,9 @@ export default function AppLayout() {
         <header className="mobile-topbar">
           <button
             className="mobile-topbar__hamburger"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Abrir menú"
+            onClick={handleToggleMenu}
+            aria-label="Abrir menú lateral"
+            title="Abrir menú lateral (Ctrl+B)"
           >
             <HiOutlineBars3 />
           </button>

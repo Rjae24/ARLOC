@@ -13,7 +13,7 @@ import {
 } from 'react-icons/hi2';
 
 export default function Usuarios() {
-  const { createUser } = useAuth();
+  const { createUser, user } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -24,6 +24,7 @@ export default function Usuarios() {
   // Confirm modal state
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [usuarioAEliminar, setUsuarioAEliminar] = useState(null);
+  const [eliminando, setEliminando] = useState(false);
 
   useEffect(() => { loadUsuarios(); }, []);
 
@@ -61,6 +62,19 @@ export default function Usuarios() {
   }
 
   async function toggleActivo(usuario) {
+    if (usuario.id === user?.id) {
+      toast.error('No puedes desactivar tu propia cuenta actual.');
+      return;
+    }
+
+    if (usuario.rol === 'admin' && usuario.activo) {
+      const adminsActivos = usuarios.filter(u => u.rol === 'admin' && u.activo);
+      if (adminsActivos.length <= 1) {
+        toast.error('Debe existir al menos un administrador activo en el sistema.');
+        return;
+      }
+    }
+
     try {
       const { error } = await supabase
         .from('usuarios')
@@ -75,26 +89,49 @@ export default function Usuarios() {
   }
 
   function solicitarEliminacion(usuario) {
+    if (usuario.id === user?.id) {
+      toast.error('No puedes eliminar tu propia cuenta actual.');
+      return;
+    }
+
+    if (usuario.rol === 'admin') {
+      const adminsActivos = usuarios.filter(u => u.rol === 'admin' && u.activo);
+      if (adminsActivos.length <= 1) {
+        toast.error('No puedes eliminar al único administrador activo del sistema.');
+        return;
+      }
+    }
+
     setUsuarioAEliminar(usuario);
     setConfirmOpen(true);
   }
 
   async function confirmarEliminacion() {
     if (!usuarioAEliminar) return;
+    setEliminando(true);
     try {
-      // Desactivar el usuario en la tabla pública
-      const { error } = await supabase
-        .from('usuarios')
-        .update({ activo: false, nombre_completo: `[ELIMINADO] ${usuarioAEliminar.nombre_completo}` })
-        .eq('id', usuarioAEliminar.id);
-      if (error) throw error;
-      toast.success(`Usuario "${usuarioAEliminar.nombre_completo}" eliminado`);
+      // Usar la función RPC eliminar_usuario que desvincula tablas y borra en public.usuarios y auth.users
+      const { error } = await supabase.rpc('eliminar_usuario', { p_user_id: usuarioAEliminar.id });
+
+      if (error) {
+        console.warn('RPC eliminar_usuario falló, intentando eliminación directa:', error.message);
+        // Fallback: eliminación directa en public.usuarios
+        const { error: directError } = await supabase
+          .from('usuarios')
+          .delete()
+          .eq('id', usuarioAEliminar.id);
+
+        if (directError) throw new Error(directError.message || error.message);
+      }
+
+      toast.success(`Usuario "${usuarioAEliminar.nombre_completo}" eliminado permanentemente`);
+      setConfirmOpen(false);
+      setUsuarioAEliminar(null);
       loadUsuarios();
     } catch (error) {
       toast.error('Error al eliminar usuario: ' + error.message);
     } finally {
-      setConfirmOpen(false);
-      setUsuarioAEliminar(null);
+      setEliminando(false);
     }
   }
 
@@ -108,7 +145,7 @@ export default function Usuarios() {
           <p className="page__subtitle">{usuarios.length} usuario(s) registrado(s)</p>
         </div>
         <button className="btn btn--primary" onClick={() => setShowModal(true)}>
-          <HiOutlineUserPlus /> Nuevo Vendedor
+          <HiOutlineUserPlus /> Nuevo Usuario
         </button>
       </div>
 
@@ -142,21 +179,26 @@ export default function Usuarios() {
                   </td>
                   <td style={{ color: '#A3A3A3' }}>{formatFecha(u.created_at)}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
-                      {u.rol !== 'admin' && (
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                      {u.id === user?.id ? (
+                        <span style={{ fontSize: '0.75rem', color: '#9CA3AF', fontStyle: 'italic', padding: '0.25rem 0.5rem' }}>
+                          (Tu cuenta)
+                        </span>
+                      ) : (
                         <>
                           <button
                             className={`btn btn--ghost btn--xs ${u.activo ? 'text-danger' : 'text-success'}`}
                             onClick={() => toggleActivo(u)}
                             title={u.activo ? 'Desactivar acceso' : 'Activar acceso'}
+                            style={{ minWidth: '36px', minHeight: '36px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                           >
                             {u.activo ? <HiOutlineLockClosed /> : <HiOutlineLockOpen />}
                           </button>
                           <button
                             className="btn btn--ghost btn--xs text-danger"
                             onClick={() => solicitarEliminacion(u)}
-                            title="Eliminar usuario"
-                            style={{ color: '#EF4444' }}
+                            title={u.rol === 'admin' ? 'Eliminar administrador' : 'Eliminar usuario'}
+                            style={{ color: '#EF4444', minWidth: '36px', minHeight: '36px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                           >
                             <HiOutlineTrash />
                           </button>
@@ -184,7 +226,7 @@ export default function Usuarios() {
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal modal--sm" onClick={e => e.stopPropagation()}>
-            <div className="modal__header"><h2>Crear Vendedor</h2></div>
+            <div className="modal__header"><h2>Crear Usuario</h2></div>
             <form onSubmit={handleSubmit} className="modal__form">
               <div className="form-group">
                 <label>Nombre Completo</label>
@@ -215,16 +257,24 @@ export default function Usuarios() {
 
       {/* Modal confirmar eliminación */}
       <ConfirmModal
-        open={confirmOpen}
-        title="Eliminar Usuario"
+        isOpen={confirmOpen}
+        title="¿Eliminar Usuario Permanentemente?"
         message={
           usuarioAEliminar
-            ? `¿Estás seguro de eliminar al usuario "${usuarioAEliminar.nombre_completo}"?\n\nSu cuenta quedará desactivada y no podrá acceder al sistema.`
+            ? `¿Estás seguro de eliminar permanentemente al usuario "${usuarioAEliminar.nombre_completo}" (${usuarioAEliminar.email})?\n\nEsta acción borrará al usuario del sistema y de Supabase Auth. Los registros históricos (como facturas y compras) se conservarán desvinculando la referencia.`
             : ''
         }
-        confirmLabel="Sí, Eliminar"
+        confirmText="Sí, Eliminar Permanentemente"
+        cancelText="Cancelar"
+        variant="danger"
+        loading={eliminando}
         onConfirm={confirmarEliminacion}
-        onCancel={() => { setConfirmOpen(false); setUsuarioAEliminar(null); }}
+        onCancel={() => {
+          if (!eliminando) {
+            setConfirmOpen(false);
+            setUsuarioAEliminar(null);
+          }
+        }}
       />
     </div>
   );

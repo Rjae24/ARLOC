@@ -1,54 +1,29 @@
-import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import ThemeToggle from '../common/ThemeToggle';
+import SidebarGroup from './sidebar/SidebarGroup';
+import { adminNavigationGroups, vendedorNavigationGroups } from './sidebar/sidebarConfig';
 import {
-  HiOutlineHome,
-  HiOutlineShoppingCart,
-  HiOutlineCube,
-  HiOutlineUsers,
-  HiOutlineTruck,
-  HiOutlineDocumentText,
-  HiOutlineCurrencyDollar,
-  HiOutlineUserGroup,
-  HiOutlineClipboardDocumentList,
   HiOutlineArrowRightOnRectangle,
   HiOutlineBars3,
   HiOutlineXMark,
-  HiOutlineDocumentChartBar,
-  HiOutlineCog6Tooth,
 } from 'react-icons/hi2';
-
-const adminLinks = [
-  { to: '/dashboard', icon: HiOutlineHome, label: 'Dashboard' },
-  { to: '/pos', icon: HiOutlineShoppingCart, label: 'Caja' },
-  { to: '/reportes', icon: HiOutlineDocumentChartBar, label: 'Reportes' },
-  { to: '/inventario', icon: HiOutlineCube, label: 'Inventario' },
-  { to: '/clientes', icon: HiOutlineUsers, label: 'Clientes' },
-  { to: '/proveedores', icon: HiOutlineTruck, label: 'Proveedores' },
-  { to: '/ordenes-compra', icon: HiOutlineClipboardDocumentList, label: 'Órdenes de Compra' },
-  { to: '/tasa-cambio', icon: HiOutlineCurrencyDollar, label: 'Tasa de Cambio' },
-  { to: '/usuarios', icon: HiOutlineUserGroup, label: 'Usuarios' },
-  { to: '/historial', icon: HiOutlineDocumentText, label: 'Historial Facturas' },
-  { to: '/configuracion', icon: HiOutlineCog6Tooth, label: 'Configuración' },
-];
-
-
-const vendedorLinks = [
-  { to: '/pos', icon: HiOutlineShoppingCart, label: 'Caja' },
-  { to: '/dashboard', icon: HiOutlineHome, label: 'Mi Dashboard' },
-];
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const { profile, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const links = isAdmin ? adminLinks : vendedorLinks;
+  const groups = isAdmin ? adminNavigationGroups : vendedorNavigationGroups;
 
   async function handleSignOut() {
     await signOut();
     navigate('/login');
   }
+
+  const handleNavigate = () => {
+    if (mobileOpen) {
+      setMobileOpen(false);
+    }
+  };
 
   return (
     <>
@@ -62,55 +37,70 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
 
       <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''} ${mobileOpen ? 'sidebar--mobile-open' : ''}`}>
         {/* Header */}
-        <div className="sidebar__header">
-          <img src="/logo-arluc.jpg" alt="ARLUC" className="sidebar__logo" />
-          {!collapsed && (
-            <div className="sidebar__brand">
-              <h1>ARLUC</h1>
-              <span>Sistema</span>
-            </div>
+        <div
+          className={`sidebar__header ${collapsed ? 'sidebar__header--collapsed' : ''}`}
+          onClick={() => {
+            if (collapsed) setCollapsed(false);
+          }}
+          title={collapsed ? "Haz clic para expandir el menú lateral (Ctrl+B)" : undefined}
+          style={collapsed ? { cursor: 'pointer' } : undefined}
+        >
+          {collapsed ? (
+            /* Modo Contraído: Botón hamburguesa centrado, 44x44px y alineado con los iconos */
+            <button
+              type="button"
+              className="sidebar__toggle sidebar__toggle--collapsed"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCollapsed(false);
+              }}
+              aria-label="Expandir menú lateral"
+              title="Expandir menú lateral (Ctrl+B)"
+            >
+              <HiOutlineBars3 />
+            </button>
+          ) : (
+            /* Modo Expandido: Logo + Marca ERP + Botón para contraer */
+            <>
+              <img src="/logo-arluc.jpg" alt="ARLUC" className="sidebar__logo" />
+              <div className="sidebar__brand">
+                <h1>ARLUC</h1>
+                <span>Sistema ERP</span>
+              </div>
+              <button
+                type="button"
+                className="sidebar__toggle"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (mobileOpen) {
+                    setMobileOpen(false);
+                  } else {
+                    setCollapsed(true);
+                  }
+                }}
+                aria-label={mobileOpen ? "Cerrar menú" : "Contraer menú"}
+                title={mobileOpen ? "Cerrar menú" : "Contraer menú (Ctrl+B)"}
+              >
+                {mobileOpen ? <HiOutlineXMark /> : <HiOutlineBars3 />}
+              </button>
+            </>
           )}
-
-          {/* Toggle / Close button */}
-          <button
-            className="sidebar__toggle"
-            onClick={() => {
-              if (mobileOpen) {
-                setMobileOpen(false);
-              } else {
-                setCollapsed(!collapsed);
-              }
-            }}
-            aria-label={mobileOpen ? "Cerrar menú" : (collapsed ? "Expandir menú" : "Contraer menú")}
-            title={mobileOpen ? "Cerrar menú" : (collapsed ? "Expandir menú" : "Contraer menú")}
-          >
-            {collapsed && !mobileOpen ? <HiOutlineBars3 /> : <HiOutlineXMark />}
-          </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="sidebar__nav">
-          {links.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `sidebar__link ${isActive ? 'sidebar__link--active' : ''}`
-              }
-              title={label}
-            >
-              <Icon className="sidebar__link-icon" />
-              {!collapsed && <span>{label}</span>}
-            </NavLink>
+        {/* Navigation Groups */}
+        <nav className="sidebar__nav sidebar__nav--tree">
+          {groups.map((group) => (
+            <SidebarGroup
+              key={group.id}
+              group={group}
+              collapsed={collapsed}
+              onNavigate={handleNavigate}
+            />
           ))}
         </nav>
 
-        {/* User info + theme toggle + logout */}
+        {/* User info + logout */}
         <div className="sidebar__footer">
-          <div style={{ display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start', marginBottom: '0.75rem' }}>
-            <ThemeToggle showLabel={!collapsed} className="btn--full" />
-          </div>
-
           {!collapsed && (
             <div className="sidebar__user">
               <div className="sidebar__avatar">
