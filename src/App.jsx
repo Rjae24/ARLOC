@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import POS from './pages/POS';
 import Inventario from './pages/Inventario';
 import Clientes from './pages/Clientes';
+import CuentasPorCobrar from './pages/CuentasPorCobrar';
 import Proveedores from './pages/Proveedores';
 import OrdenesCompra from './pages/OrdenesCompra';
 import TasaCambio from './pages/TasaCambio';
@@ -43,6 +44,7 @@ function AppRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/pos" element={<POS />} />
         <Route path="/clientes" element={<Clientes />} />
+        <Route path="/cuentas-por-cobrar" element={<CuentasPorCobrar />} />
         
         {/* Admin-only routes */}
         <Route path="/reportes" element={

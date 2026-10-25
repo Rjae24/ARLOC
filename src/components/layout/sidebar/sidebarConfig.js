@@ -29,6 +29,7 @@ export const adminNavigationGroups = [
       { to: '/pos', label: 'Punto de Venta (Caja)' },
       { to: '/historial', label: 'Historial de Facturas' },
       { to: '/clientes', label: 'Directorio de Clientes' },
+      { to: '/cuentas-por-cobrar', label: 'Cuentas por Cobrar' },
     ],
   },
   {
@@ -89,6 +90,7 @@ export const vendedorNavigationGroups = [
     items: [
       { to: '/pos', label: 'Punto de Venta (Caja)' },
       { to: '/clientes', label: 'Clientes' },
+      { to: '/cuentas-por-cobrar', label: 'Cuentas por Cobrar' },
     ],
   },
 ];

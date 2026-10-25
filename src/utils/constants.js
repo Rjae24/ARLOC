@@ -7,6 +7,7 @@ export const METODOS_PAGO = [
   { id: 'punto_venta', label: 'Punto de Venta', enBs: true, requiereReferencia: true },
   { id: 'transferencia', label: 'Transferencia', enBs: true, requiereReferencia: true },
   { id: 'cashea', label: 'Cashea', enBs: true, isCashea: true, requiereReferencia: true },
+  { id: 'credito', label: 'Crédito', enBs: false, isCredito: true },
 ];
 
 // Métodos para pagar la inicial de Cashea

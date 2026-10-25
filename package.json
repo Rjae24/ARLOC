@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "tunnel": "powershell -Command \"& $env:TEMP\\cloudflared.exe tunnel --url http://localhost:5173\"",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"

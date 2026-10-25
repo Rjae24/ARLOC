@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { METODOS_PAGO, METODOS_INICIAL_CASHEA } from '../utils/constants';
-import { formatTasa } from '../utils/formatters';
+import { formatTasa, formatUSD } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import { fetchTasaBCV } from '../services/bcvService';
+import { mergeClienteCredito } from '../services/cuentasCobrarService';
 import { HiOutlineArrowPath } from 'react-icons/hi2';
 
 // Subcomponentes modulares de Caja
@@ -241,7 +242,8 @@ export default function POS() {
       .select('*')
       .or(`nombre.ilike.%${query}%,documento_identidad.ilike.%${query}%`)
       .limit(5);
-    setClienteResults(data || []);
+    const enriquecidos = (data || []).map(mergeClienteCredito);
+    setClienteResults(enriquecidos);
   }
 
   // Crear cliente inline
@@ -432,10 +434,6 @@ export default function POS() {
       toast.error('Carrito vacío');
       return;
     }
-    if (!clienteSeleccionado) {
-      toast.error('Seleccione un cliente');
-      return;
-    }
     if (!tasaHoy) {
       toast.error('Registre la tasa del día primero');
       return;
@@ -444,12 +442,14 @@ export default function POS() {
     agregarMetodoPago();
   }
 
+  // Verificar si la venta incluye pago a crédito
+  const tieneCredito = metodosPago.some((mp) => mp.metodo === 'credito');
+  const montoCredito = metodosPago
+    .filter((mp) => mp.metodo === 'credito')
+    .reduce((s, mp) => s + parseFloat(mp.monto_usd || 0), 0);
+
   // Emitir Factura
   async function emitirFactura() {
-    if (!clienteSeleccionado) {
-      toast.error('Seleccione un cliente');
-      return;
-    }
     if (carrito.length === 0) {
       toast.error('Agregue productos al carrito');
       return;
@@ -458,6 +458,35 @@ export default function POS() {
       toast.error('No hay tasa de cambio registrada');
       return;
     }
+
+    // Si hay pago a crédito, el cliente es obligatorio
+    if (tieneCredito && !clienteSeleccionado) {
+      toast.error('Para ventas a crédito debe seleccionar un cliente');
+      return;
+    }
+
+    // Validar crédito del cliente
+    if (tieneCredito && clienteSeleccionado) {
+      if (!clienteSeleccionado.credito_activo) {
+        toast.error(`El cliente "${clienteSeleccionado.nombre}" no tiene crédito activo. Contacte al administrador.`);
+        return;
+      }
+      const limiteCredito = parseFloat(clienteSeleccionado.linea_credito || 0);
+      if (limiteCredito > 0 && montoCredito > limiteCredito) {
+        const disponible = limiteCredito;
+        const moneda = clienteSeleccionado.moneda_credito || 'usd';
+        const limiteStr = moneda === 'usd' ? formatUSD(disponible) : `Bs ${disponible.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`;
+        const continuar = window.confirm(
+          `⚠️ Límite de crédito superado\n\n` +
+          `Cliente: ${clienteSeleccionado.nombre}\n` +
+          `Límite disponible: ${limiteStr}\n` +
+          `Monto a crédito: ${formatUSD(montoCredito)}\n\n` +
+          `¿Desea continuar de todas formas?`
+        );
+        if (!continuar) return;
+      }
+    }
+
     if (restante > 0.01) {
       toast.error(`Faltan ${formatUSD(restante)} por pagar`);
       return;
@@ -578,7 +607,7 @@ export default function POS() {
 
       const invoicePayload = {
         numero_factura: numData,
-        cliente_id: clienteSeleccionado.id,
+        cliente_id: clienteSeleccionado?.id || null,
         vendedor_id: profile.id,
         tasa_id: tasaHoy.id,
         descuento_usd: 0,
@@ -641,7 +670,7 @@ export default function POS() {
 
       setFacturaEmitida({
         ...factura,
-        cliente: clienteSeleccionado,
+        cliente: clienteSeleccionado || null,
         detalles: carrito,
         tasa: tasaHoy,
         vendedor: profile,
@@ -772,6 +801,8 @@ export default function POS() {
           metodosPago={metodosPago}
           loading={loading}
           tieneCashea={tieneCashea}
+          tieneCredito={tieneCredito}
+          montoCredito={montoCredito}
           totalPagadoEnTienda={totalPagadoEnTienda}
           casheaCreditoUSD={casheaCreditoUSD}
           restante={restante}

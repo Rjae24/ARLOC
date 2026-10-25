@@ -12,6 +12,8 @@ export default function POSPaymentSection({
   metodosPago,
   loading,
   tieneCashea,
+  tieneCredito,
+  montoCredito,
   totalPagadoEnTienda,
   casheaCreditoUSD,
   restante,
@@ -114,7 +116,7 @@ export default function POSPaymentSection({
                               fontWeight: metodoConfig?.isCashea ? 'bold' : undefined,
                             }}
                           >
-                            {metodoConfig?.isCashea ? 'Inicial Cashea ($ USD)' : 'Monto ($ USD)'}
+                          {metodoConfig?.isCashea ? 'Inicial Cashea ($ USD)' : metodoConfig?.isCredito ? 'Monto a Crédito ($ USD)' : 'Monto ($ USD)'}
                           </label>
                           <input
                             type="number"
@@ -140,6 +142,33 @@ export default function POSPaymentSection({
                           </div>
                         )}
                       </div>
+
+                      {/* Crédito: nota informativa */}
+                      {metodoConfig?.isCredito && (
+                        <div style={{
+                          marginTop: '0.5rem',
+                          background: 'rgba(99,102,241,0.1)',
+                          border: '1px solid rgba(99,102,241,0.3)',
+                          borderRadius: '6px',
+                          padding: '0.5rem 0.65rem',
+                          fontSize: '0.78rem',
+                          color: 'rgba(99,102,241,0.9)',
+                        }}>
+                          {clienteSeleccionado ? (
+                            clienteSeleccionado.credito_activo ? (
+                              <span>El monto quedará pendiente de cobro en la cuenta del cliente <strong>{clienteSeleccionado.nombre}</strong>.</span>
+                            ) : (
+                              <span style={{ color: 'var(--danger,#EF4444)', fontWeight: 600 }}>
+                                ⚠️ Este cliente no tiene crédito activo. No se podrá emitir.
+                              </span>
+                            )
+                          ) : (
+                            <span style={{ color: 'var(--danger,#EF4444)', fontWeight: 600 }}>
+                              ⚠️ Debe seleccionar un cliente para ventas a crédito.
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Zelle: Titular y Correo */}
                       {metodoConfig?.isZelle && (
@@ -250,6 +279,12 @@ export default function POSPaymentSection({
                 <div className="pos-totals__row" style={{ color: '#EC4899', fontWeight: 'bold' }}>
                   <span>Monto Financiado Cashea (Crédito)</span>
                   <span>{formatUSD(casheaCreditoUSD)}</span>
+                </div>
+              )}
+              {tieneCredito && montoCredito > 0 && (
+                <div className="pos-totals__row" style={{ color: 'rgba(99,102,241,0.9)', fontWeight: 'bold' }}>
+                  <span>Monto a Crédito Directo</span>
+                  <span>{formatUSD(montoCredito)}</span>
                 </div>
               )}
               {restante > 0.01 && (
