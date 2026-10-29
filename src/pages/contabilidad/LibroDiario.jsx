@@ -7,14 +7,17 @@ import {
   HiOutlineCalendar,
   HiOutlineMagnifyingGlass,
   HiOutlineFunnel,
-  HiOutlineTrash,
   HiOutlineXMark,
 } from 'react-icons/hi2';
 import toast from 'react-hot-toast';
-import { fetchAsientos, crearAsiento, eliminarAsiento, fetchCuentasOperativas } from '../../services/contabilidadService';
-import ConfirmModal from '../../components/common/ConfirmModal';
+import {
+  fetchAsientos,
+  crearAsiento,
+  fetchCuentasOperativas,
+  ORIGENES_CONTABLES,
+} from '../../services/contabilidadService';
 
-const MODULOS = ['Manual', 'Ventas', 'Compras', 'Tesorería', 'Gastos', 'Ajuste', 'Nómina'];
+const MODULOS = ORIGENES_CONTABLES;
 
 export default function LibroDiario() {
   const [asientos, setAsientos] = useState([]);
@@ -31,10 +34,6 @@ export default function LibroDiario() {
     { cuenta_id: '', debe: '', haber: '' },
     { cuenta_id: '', debe: '', haber: '' },
   ]);
-
-  // Modal eliminar
-  const [asientoToDelete, setAsientoToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -57,10 +56,16 @@ export default function LibroDiario() {
   // ---- Helpers ----
   const formatMoney = (amount) =>
     `$${Number(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatBolivares = (amount) =>
+    `Bs. ${Number(amount || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const totalDebe = asientos.reduce((acc, a) => acc + Number(a.total_debe || 0), 0);
-  const totalHaber = asientos.reduce((acc, a) => acc + Number(a.total_haber || 0), 0);
-  const diferencia = Math.abs(totalDebe - totalHaber);
+  const totalDebeCentimos = asientos.reduce((acc, asiento) =>
+    acc + Math.round(Number(asiento.total_debe || 0) * 100), 0);
+  const totalHaberCentimos = asientos.reduce((acc, asiento) =>
+    acc + Math.round(Number(asiento.total_haber || 0) * 100), 0);
+  const totalDebe = totalDebeCentimos / 100;
+  const totalHaber = totalHaberCentimos / 100;
+  const diferencia = Math.abs(totalDebeCentimos - totalHaberCentimos) / 100;
 
   // ---- Líneas dinámicas ----
   function updateLinea(idx, field, value) {
@@ -85,7 +90,9 @@ export default function LibroDiario() {
 
   const sumaDebeForm = lineas.reduce((s, l) => s + (parseFloat(l.debe) || 0), 0);
   const sumaHaberForm = lineas.reduce((s, l) => s + (parseFloat(l.haber) || 0), 0);
-  const formBalanced = Math.abs(sumaDebeForm - sumaHaberForm) < 0.01 && sumaDebeForm > 0;
+  const sumaDebeFormCentimos = lineas.reduce((s, l) => s + Math.round((parseFloat(l.debe) || 0) * 100), 0);
+  const sumaHaberFormCentimos = lineas.reduce((s, l) => s + Math.round((parseFloat(l.haber) || 0) * 100), 0);
+  const formBalanced = sumaDebeFormCentimos === sumaHaberFormCentimos && sumaDebeFormCentimos > 0;
 
   // ---- Submit ----
   async function handleSubmit(e) {
@@ -104,7 +111,9 @@ export default function LibroDiario() {
 
     const totalD = lineasLimpias.reduce((s, l) => s + l.debe, 0);
     const totalH = lineasLimpias.reduce((s, l) => s + l.haber, 0);
-    if (Math.abs(totalD - totalH) > 0.01) {
+    const totalDCentimos = lineasLimpias.reduce((s, l) => s + Math.round(l.debe * 100), 0);
+    const totalHCentimos = lineasLimpias.reduce((s, l) => s + Math.round(l.haber * 100), 0);
+    if (totalDCentimos !== totalHCentimos) {
       toast.error(`El asiento no está balanceado. Debe: ${formatMoney(totalD)} ≠ Haber: ${formatMoney(totalH)}`);
       return;
     }
@@ -121,22 +130,6 @@ export default function LibroDiario() {
       toast.error('Error al crear asiento: ' + err.message);
     } finally {
       setSaving(false);
-    }
-  }
-
-  // ---- Delete ----
-  async function handleDelete() {
-    if (!asientoToDelete) return;
-    setDeleting(true);
-    try {
-      await eliminarAsiento(asientoToDelete.id);
-      toast.success(`Asiento ${asientoToDelete.numero} eliminado`);
-      setAsientoToDelete(null);
-      loadData();
-    } catch (err) {
-      toast.error('Error al eliminar asiento: ' + err.message);
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -211,7 +204,7 @@ export default function LibroDiario() {
             <HiOutlineFunnel style={{ color: 'var(--text-muted)' }} />
             <select value={filterModulo} onChange={(e) => setFilterModulo(e.target.value)} style={{ padding: '0.6rem 1rem', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
               <option value="todos">Todos los módulos</option>
-              {MODULOS.map((m) => <option key={m} value={m}>{m}</option>)}
+              {MODULOS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
             </select>
           </div>
         </div>
@@ -239,6 +232,9 @@ export default function LibroDiario() {
                     <HiOutlineCalendar /> {asiento.fecha}
                   </span>
                   <span className="badge badge--info" style={{ fontSize: '0.75rem' }}>{asiento.modulo}</span>
+                  <span className="badge badge--secondary" style={{ fontSize: '0.75rem' }}>
+                    Tasa: {Number(asiento.tasa_cambio || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} Bs./USD
+                  </span>
                   {!asiento.balanceado && (
                     <span className="badge badge--danger" style={{ fontSize: '0.75rem' }}>Descuadrado</span>
                   )}
@@ -247,14 +243,7 @@ export default function LibroDiario() {
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {asiento.glosa}
                   </span>
-                  <button
-                    className="btn btn--ghost btn--xs text-danger"
-                    onClick={() => setAsientoToDelete(asiento)}
-                    title="Eliminar asiento"
-                    style={{ color: '#EF4444', minWidth: '36px', minHeight: '36px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <HiOutlineTrash />
-                  </button>
+                  <span className="badge badge--success">Registrado</span>
                 </div>
               </div>
 
@@ -265,8 +254,10 @@ export default function LibroDiario() {
                     <tr>
                       <th style={{ width: '130px' }}>Código</th>
                       <th>Cuenta Contable</th>
-                      <th style={{ width: '140px', textAlign: 'right' }}>Debe</th>
-                      <th style={{ width: '140px', textAlign: 'right' }}>Haber</th>
+                      <th style={{ width: '130px', textAlign: 'right' }}>Debe (USD)</th>
+                      <th style={{ width: '130px', textAlign: 'right' }}>Haber (USD)</th>
+                      <th style={{ width: '145px', textAlign: 'right' }}>Debe (Bs.)</th>
+                      <th style={{ width: '145px', textAlign: 'right' }}>Haber (Bs.)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -284,6 +275,12 @@ export default function LibroDiario() {
                           <td style={{ textAlign: 'right', fontWeight: Number(linea.haber) > 0 ? 600 : 400, color: Number(linea.haber) > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                             {Number(linea.haber) > 0 ? formatMoney(linea.haber) : '—'}
                           </td>
+                          <td style={{ textAlign: 'right', fontWeight: Number(linea.debeVes) > 0 ? 600 : 400, color: Number(linea.debeVes) > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                            {Number(linea.debeVes) > 0 ? formatBolivares(linea.debeVes) : '—'}
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: Number(linea.haberVes) > 0 ? 600 : 400, color: Number(linea.haberVes) > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                            {Number(linea.haberVes) > 0 ? formatBolivares(linea.haberVes) : '—'}
+                          </td>
                         </tr>
                       );
                     })}
@@ -291,6 +288,8 @@ export default function LibroDiario() {
                       <td colSpan="2" style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>Sumas Iguales:</td>
                       <td style={{ textAlign: 'right', color: 'var(--primary)' }}>{formatMoney(asiento.total_debe)}</td>
                       <td style={{ textAlign: 'right', color: 'var(--info)' }}>{formatMoney(asiento.total_haber)}</td>
+                      <td style={{ textAlign: 'right', color: 'var(--primary)' }}>{formatBolivares(asiento.total_debe_ves)}</td>
+                      <td style={{ textAlign: 'right', color: 'var(--info)' }}>{formatBolivares(asiento.total_haber_ves)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -316,7 +315,7 @@ export default function LibroDiario() {
                 <div className="form-group">
                   <label>Módulo / Tipo</label>
                   <select value={form.modulo} onChange={(e) => setForm({ ...form, modulo: e.target.value })}>
-                    {MODULOS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    {MODULOS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
                   </select>
                 </div>
               </div>
@@ -324,6 +323,9 @@ export default function LibroDiario() {
                 <label>Concepto / Glosa</label>
                 <input value={form.glosa} onChange={(e) => setForm({ ...form, glosa: e.target.value })} placeholder="Descripción del asiento contable" required />
               </div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                La conversión a bolívares utiliza la última tasa BCV registrada hasta la fecha contable.
+              </p>
 
               {/* Líneas dinámicas */}
               <div style={{ marginTop: '0.75rem' }}>
@@ -392,18 +394,6 @@ export default function LibroDiario() {
         </div>
       )}
 
-      {/* Modal confirmar eliminación */}
-      <ConfirmModal
-        isOpen={!!asientoToDelete}
-        title={`¿Eliminar asiento ${asientoToDelete?.numero}?`}
-        message="Se eliminarán todas las líneas contables asociadas a este asiento. Esta acción no se puede deshacer."
-        confirmText="Sí, Eliminar Asiento"
-        cancelText="Cancelar"
-        variant="danger"
-        loading={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => !deleting && setAsientoToDelete(null)}
-      />
     </div>
   );
 }

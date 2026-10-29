@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import POS from './pages/POS';
 import Inventario from './pages/Inventario';
+import ReportesInventario from './pages/ReportesInventario';
 import Clientes from './pages/Clientes';
 import CuentasPorCobrar from './pages/CuentasPorCobrar';
 import ReportesCxC from './pages/ReportesCxC';
@@ -20,6 +21,9 @@ import Reportes from './pages/Reportes';
 import Configuracion from './pages/Configuracion';
 import LibroDiario from './pages/contabilidad/LibroDiario';
 import LibroMayor from './pages/contabilidad/LibroMayor';
+import PlanCuentas from './pages/contabilidad/PlanCuentas';
+import BalanceComprobacion from './pages/contabilidad/BalanceComprobacion';
+import EstadosFinancieros from './pages/contabilidad/EstadosFinancieros';
 
 function AppRoutes() {
   const { user, profile, loading, isAdmin } = useAuth();
@@ -55,6 +59,9 @@ function AppRoutes() {
         <Route path="/inventario" element={
           <ProtectedRoute requiereAdmin><Inventario /></ProtectedRoute>
         } />
+        <Route path="/inventario/reportes" element={
+          <ProtectedRoute requiereAdmin><ReportesInventario /></ProtectedRoute>
+        } />
         <Route path="/proveedores" element={
           <ProtectedRoute requiereAdmin><Proveedores /></ProtectedRoute>
         } />
@@ -64,11 +71,20 @@ function AppRoutes() {
         <Route path="/tasa-cambio" element={
           <ProtectedRoute requiereAdmin><TasaCambio /></ProtectedRoute>
         } />
+        <Route path="/contabilidad/plan-cuentas" element={
+          <ProtectedRoute requiereAdmin><PlanCuentas /></ProtectedRoute>
+        } />
         <Route path="/contabilidad/libro-diario" element={
           <ProtectedRoute requiereAdmin><LibroDiario /></ProtectedRoute>
         } />
         <Route path="/contabilidad/libro-mayor" element={
           <ProtectedRoute requiereAdmin><LibroMayor /></ProtectedRoute>
+        } />
+        <Route path="/contabilidad/balance-comprobacion" element={
+          <ProtectedRoute requiereAdmin><BalanceComprobacion /></ProtectedRoute>
+        } />
+        <Route path="/contabilidad/estados-financieros" element={
+          <ProtectedRoute requiereAdmin><EstadosFinancieros /></ProtectedRoute>
         } />
         <Route path="/usuarios" element={
           <ProtectedRoute requiereAdmin><Usuarios /></ProtectedRoute>

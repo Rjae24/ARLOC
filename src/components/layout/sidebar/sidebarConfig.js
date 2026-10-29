@@ -52,8 +52,11 @@ export const adminNavigationGroups = [
     label: 'Contabilidad General',
     icon: HiOutlineBookOpen,
     items: [
+      { to: '/contabilidad/plan-cuentas', label: 'Plan de Cuentas' },
       { to: '/contabilidad/libro-diario', label: 'Libro Diario' },
       { to: '/contabilidad/libro-mayor', label: 'Libro Mayor' },
+      { to: '/contabilidad/balance-comprobacion', label: 'Balance de Comprobación' },
+      { to: '/contabilidad/estados-financieros', label: 'Estados Financieros' },
     ],
   },
   {

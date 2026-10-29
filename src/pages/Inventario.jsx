@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { formatUSD, formatFecha } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import Pagination from '../components/common/Pagination';
 import {
   HiOutlinePlus, HiOutlinePencilSquare, HiOutlineTrash,
-  HiOutlineMagnifyingGlass, HiOutlineFunnel, HiOutlineTag,
+  HiOutlineMagnifyingGlass, HiOutlineFunnel, HiOutlineTag, HiOutlineDocumentChartBar,
 } from 'react-icons/hi2';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ModalImprimirEtiquetas from '../components/print/ModalImprimirEtiquetas';
@@ -192,6 +193,9 @@ export default function Inventario() {
           <p className="page__subtitle">{productos.length} productos registrados</p>
         </div>
         <div className="page__actions">
+          <Link className="btn btn--secondary" to="/inventario/reportes">
+            <HiOutlineDocumentChartBar /> Reportes
+          </Link>
           <button className="btn btn--secondary" onClick={() => abrirModalEtiquetas(null)}>
             <HiOutlineTag /> Imprimir Etiquetas
           </button>

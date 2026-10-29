@@ -17,3 +17,5 @@ Permite alternar entre ambos temas con un clic desde la barra lateral, cabecera 
 - **Backend / Base de Datos:** Supabase (PostgreSQL, Row Level Security & Auth)
 - **Reportería & Exportación:** Recharts, SheetJS (XLSX), JsBarcode
 - **Multimoneda:** Integración en tiempo real con tasa oficial del Banco Central de Venezuela (BCV)
+
+El módulo de Inventario incluye reportes de salidas por ventas, proyección de existencias y alertas de rotación, con filtros por periodo y exportación a Excel o PDF.

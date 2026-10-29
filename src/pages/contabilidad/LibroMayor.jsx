@@ -11,6 +11,37 @@ import {
 import toast from 'react-hot-toast';
 import { fetchCuentasOperativas, fetchMovimientosCuenta } from '../../services/contabilidadService';
 
+function cuentaEsDeudora(cuenta) {
+  return cuenta?.naturaleza?.toUpperCase() === 'DEUDORA'
+    || ['ACTIVO', 'COSTO', 'GASTO'].includes(cuenta?.tipo?.toUpperCase());
+}
+
+function agregarSaldoAcumulado(movimientos, esDeudora) {
+  let saldoAcumuladoCentimos = 0;
+  let saldoAcumuladoVesCentimos = 0;
+  const movimientosConSaldo = [];
+
+  for (const movimiento of movimientos) {
+    const debeCentimos = Math.round(Number(movimiento.debe || 0) * 100);
+    const haberCentimos = Math.round(Number(movimiento.haber || 0) * 100);
+    const debeVesCentimos = Math.round(Number(movimiento.debe_ves || 0) * 100);
+    const haberVesCentimos = Math.round(Number(movimiento.haber_ves || 0) * 100);
+    saldoAcumuladoCentimos += esDeudora
+      ? debeCentimos - haberCentimos
+      : haberCentimos - debeCentimos;
+    saldoAcumuladoVesCentimos += esDeudora
+      ? debeVesCentimos - haberVesCentimos
+      : haberVesCentimos - debeVesCentimos;
+    movimientosConSaldo.push({
+      ...movimiento,
+      saldoAcumulado: saldoAcumuladoCentimos / 100,
+      saldoAcumuladoVes: saldoAcumuladoVesCentimos / 100,
+    });
+  }
+
+  return movimientosConSaldo;
+}
+
 export default function LibroMayor() {
   const [cuentas, setCuentas] = useState([]);
   const [selectedCuentaId, setSelectedCuentaId] = useState('');
@@ -77,48 +108,57 @@ export default function LibroMayor() {
     );
   }, [cuentas, searchCuenta]);
 
-  // Movimientos filtrados por rango de fechas
+  const movimientosConSaldo = useMemo(() => {
+    return agregarSaldoAcumulado(movimientos, cuentaEsDeudora(cuentaActiva));
+  }, [movimientos, cuentaActiva]);
+
+  // El saldo acumulado conserva los movimientos anteriores al rango filtrado.
   const movimientosFiltrados = useMemo(() => {
-    return movimientos.filter((m) => {
+    return movimientosConSaldo.filter((m) => {
       const fecha = m.asientos_contables?.fecha;
       if (!fecha) return true;
       if (fechaDesde && fecha < fechaDesde) return false;
       if (fechaHasta && fecha > fechaHasta) return false;
       return true;
     });
-  }, [movimientos, fechaDesde, fechaHasta]);
+  }, [movimientosConSaldo, fechaDesde, fechaHasta]);
 
   // Totales de movimientos filtrados
-  const { totalDebe, totalHaber, saldoFinal } = useMemo(() => {
-    let tDebe = 0;
-    let tHaber = 0;
+  const { totalDebe, totalHaber, totalDebeVes, totalHaberVes } = useMemo(() => {
+    let totalDebeCentimos = 0;
+    let totalHaberCentimos = 0;
+    let totalDebeVesCentimos = 0;
+    let totalHaberVesCentimos = 0;
 
     movimientosFiltrados.forEach((m) => {
-      tDebe += Number(m.debe || 0);
-      tHaber += Number(m.haber || 0);
+      totalDebeCentimos += Math.round(Number(m.debe || 0) * 100);
+      totalHaberCentimos += Math.round(Number(m.haber || 0) * 100);
+      totalDebeVesCentimos += Math.round(Number(m.debe_ves || 0) * 100);
+      totalHaberVesCentimos += Math.round(Number(m.haber_ves || 0) * 100);
     });
 
-    // En contabilidad venezolana/internacional:
-    // Deudora (Activo, Costos, Gastos/Egresos): Debe - Haber
-    // Acreedora (Pasivo, Capital/Patrimonio, Ingresos): Haber - Debe
-    const esDeudora =
-      cuentaActiva?.naturaleza === 'Deudora' ||
-      cuentaActiva?.tipo === 'Activo' ||
-      cuentaActiva?.tipo === 'Egreso' ||
-      cuentaActiva?.tipo === 'Costo' ||
-      cuentaActiva?.tipo === 'Gasto';
-
-    const sFinal = esDeudora ? tDebe - tHaber : tHaber - tDebe;
-
     return {
-      totalDebe: tDebe,
-      totalHaber: tHaber,
-      saldoFinal: sFinal,
+      totalDebe: totalDebeCentimos / 100,
+      totalHaber: totalHaberCentimos / 100,
+      totalDebeVes: totalDebeVesCentimos / 100,
+      totalHaberVes: totalHaberVesCentimos / 100,
     };
-  }, [movimientosFiltrados, cuentaActiva]);
+  }, [movimientosFiltrados]);
+
+  const movimientosAlCorte = movimientosConSaldo.filter(m =>
+    !fechaHasta || (m.asientos_contables?.fecha && m.asientos_contables.fecha <= fechaHasta)
+  );
+  const saldoFinal = movimientosAlCorte.length
+    ? movimientosAlCorte[movimientosAlCorte.length - 1].saldoAcumulado
+    : 0;
+  const saldoFinalVes = movimientosAlCorte.length
+    ? movimientosAlCorte[movimientosAlCorte.length - 1].saldoAcumuladoVes
+    : 0;
 
   const formatMoney = (amount) =>
     `$${Number(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatBolivares = (amount) =>
+    `Bs. ${Number(amount || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   // Exportar a CSV
   const handleExportCSV = () => {
@@ -127,17 +167,21 @@ export default function LibroMayor() {
       return;
     }
 
-    const headers = ['Fecha', 'Número Asiento', 'Concepto / Glosa', 'Módulo', 'Debe ($)', 'Haber ($)', 'Saldo Acumulado ($)'];
-    let runningSaldo = 0;
-    const esDeudora =
-      cuentaActiva.naturaleza === 'Deudora' ||
-      cuentaActiva.tipo === 'Activo' ||
-      cuentaActiva.tipo === 'Egreso';
-
+    const headers = [
+      'Fecha',
+      'Número Asiento',
+      'Concepto / Glosa',
+      'Módulo',
+      'Debe ($)',
+      'Haber ($)',
+      'Debe (Bs.)',
+      'Haber (Bs.)',
+      'Saldo Acumulado ($)',
+      'Saldo Acumulado (Bs.)',
+    ];
     const rows = movimientosFiltrados.map((m) => {
       const debe = Number(m.debe || 0);
       const haber = Number(m.haber || 0);
-      runningSaldo += esDeudora ? debe - haber : haber - debe;
       return [
         `"${m.asientos_contables?.fecha || ''}"`,
         `"${m.asientos_contables?.numero || ''}"`,
@@ -145,7 +189,10 @@ export default function LibroMayor() {
         `"${m.asientos_contables?.modulo || ''}"`,
         debe.toFixed(2),
         haber.toFixed(2),
-        runningSaldo.toFixed(2),
+        Number(m.debe_ves || 0).toFixed(2),
+        Number(m.haber_ves || 0).toFixed(2),
+        Number(m.saldoAcumulado || 0).toFixed(2),
+        Number(m.saldoAcumuladoVes || 0).toFixed(2),
       ].join(',');
     });
 
@@ -159,13 +206,6 @@ export default function LibroMayor() {
     document.body.removeChild(link);
     toast.success('Libro Mayor exportado a CSV exitosamente');
   };
-
-  // Variable para cálculo secuencial en el renderizado
-  let saldoAcumulado = 0;
-  const esDeudora =
-    cuentaActiva?.naturaleza === 'Deudora' ||
-    cuentaActiva?.tipo === 'Activo' ||
-    cuentaActiva?.tipo === 'Egreso';
 
   return (
     <div className="page">
@@ -244,7 +284,7 @@ export default function LibroMayor() {
               fontWeight: 500,
             }}
           >
-            {cuentas.map((c) => (
+            {cuentasFiltradas.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.codigo} — {c.nombre} ({c.tipo})
               </option>
@@ -365,7 +405,7 @@ export default function LibroMayor() {
             {formatMoney(totalDebe)}
           </div>
           <div className="kpi-card__sub" style={{ color: 'var(--text-muted)' }}>
-            Suma de cargos en el periodo
+            {formatBolivares(totalDebeVes)} · Suma de cargos en el periodo
           </div>
         </div>
 
@@ -375,7 +415,7 @@ export default function LibroMayor() {
             {formatMoney(totalHaber)}
           </div>
           <div className="kpi-card__sub" style={{ color: 'var(--text-muted)' }}>
-            Suma de abonos en el periodo
+            {formatBolivares(totalHaberVes)} · Suma de abonos en el periodo
           </div>
         </div>
 
@@ -392,7 +432,7 @@ export default function LibroMayor() {
             {formatMoney(saldoFinal)}
           </div>
           <div className="kpi-card__sub" style={{ color: '#22C55E' }}>
-            {cuentaActiva?.naturaleza === 'Acreedora' ? 'Saldo Acreedor' : 'Saldo Deudor'}
+            {formatBolivares(saldoFinalVes)} · {cuentaActiva?.naturaleza?.toUpperCase() === 'ACREEDORA' ? 'Saldo Acreedor' : 'Saldo Deudor'}
           </div>
         </div>
       </div>
@@ -455,29 +495,27 @@ export default function LibroMayor() {
           </div>
         ) : (
           <div className="table-container" style={{ margin: 0, overflowX: 'auto' }}>
-            <table className="table" style={{ margin: 0, minWidth: '700px' }}>
+            <table className="table" style={{ margin: 0, minWidth: '1250px' }}>
               <thead>
                 <tr>
                   <th style={{ width: '120px' }}>Fecha</th>
                   <th style={{ width: '150px' }}>Asiento</th>
                   <th style={{ width: '100px' }}>Módulo</th>
                   <th>Concepto / Glosa</th>
-                  <th style={{ width: '130px', textAlign: 'right' }}>Debe (+)</th>
-                  <th style={{ width: '130px', textAlign: 'right' }}>Haber (-)</th>
-                  <th style={{ width: '140px', textAlign: 'right' }}>Saldo Acumulado</th>
+                  <th style={{ width: '130px', textAlign: 'right' }}>Debe (USD)</th>
+                  <th style={{ width: '130px', textAlign: 'right' }}>Haber (USD)</th>
+                  <th style={{ width: '145px', textAlign: 'right' }}>Debe (Bs.)</th>
+                  <th style={{ width: '145px', textAlign: 'right' }}>Haber (Bs.)</th>
+                  <th style={{ width: '150px', textAlign: 'right' }}>Saldo (USD)</th>
+                  <th style={{ width: '160px', textAlign: 'right' }}>Saldo (Bs.)</th>
                 </tr>
               </thead>
               <tbody>
                 {movimientosFiltrados.map((m) => {
                   const debe = Number(m.debe || 0);
                   const haber = Number(m.haber || 0);
-
-                  if (esDeudora) {
-                    saldoAcumulado = saldoAcumulado + debe - haber;
-                  } else {
-                    saldoAcumulado = saldoAcumulado + haber - debe;
-                  }
-
+                  const debeVes = Number(m.debe_ves || 0);
+                  const haberVes = Number(m.haber_ves || 0);
                   const asiento = m.asientos_contables;
 
                   return (
@@ -510,14 +548,29 @@ export default function LibroMayor() {
                       >
                         {haber > 0 ? formatMoney(haber) : '—'}
                       </td>
+                      <td style={{ textAlign: 'right', fontWeight: debeVes > 0 ? 600 : 400, color: debeVes > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        {debeVes > 0 ? formatBolivares(debeVes) : '—'}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: haberVes > 0 ? 600 : 400, color: haberVes > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        {haberVes > 0 ? formatBolivares(haberVes) : '—'}
+                      </td>
                       <td
                         style={{
                           textAlign: 'right',
                           fontWeight: 700,
-                          color: saldoAcumulado >= 0 ? 'var(--primary)' : '#EF4444',
+                          color: m.saldoAcumulado >= 0 ? 'var(--primary)' : '#EF4444',
                         }}
                       >
-                        {formatMoney(saldoAcumulado)}
+                        {formatMoney(m.saldoAcumulado)}
+                      </td>
+                      <td
+                        style={{
+                          textAlign: 'right',
+                          fontWeight: 700,
+                          color: m.saldoAcumuladoVes >= 0 ? 'var(--primary)' : '#EF4444',
+                        }}
+                      >
+                        {formatBolivares(m.saldoAcumuladoVes)}
                       </td>
                     </tr>
                   );
@@ -536,6 +589,8 @@ export default function LibroMayor() {
                   </td>
                   <td style={{ textAlign: 'right', color: 'var(--primary)' }}>{formatMoney(totalDebe)}</td>
                   <td style={{ textAlign: 'right', color: 'var(--info)' }}>{formatMoney(totalHaber)}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--primary)' }}>{formatBolivares(totalDebeVes)}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--info)' }}>{formatBolivares(totalHaberVes)}</td>
                   <td
                     style={{
                       textAlign: 'right',
@@ -544,6 +599,15 @@ export default function LibroMayor() {
                     }}
                   >
                     {formatMoney(saldoFinal)}
+                  </td>
+                  <td
+                    style={{
+                      textAlign: 'right',
+                      color: saldoFinalVes >= 0 ? '#22C55E' : '#EF4444',
+                      fontSize: '1.05rem',
+                    }}
+                  >
+                    {formatBolivares(saldoFinalVes)}
                   </td>
                 </tr>
               </tbody>
