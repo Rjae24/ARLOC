@@ -10,6 +10,7 @@ import POS from './pages/POS';
 import Inventario from './pages/Inventario';
 import Clientes from './pages/Clientes';
 import CuentasPorCobrar from './pages/CuentasPorCobrar';
+import ReportesCxC from './pages/ReportesCxC';
 import Proveedores from './pages/Proveedores';
 import OrdenesCompra from './pages/OrdenesCompra';
 import TasaCambio from './pages/TasaCambio';
@@ -45,6 +46,7 @@ function AppRoutes() {
         <Route path="/pos" element={<POS />} />
         <Route path="/clientes" element={<Clientes />} />
         <Route path="/cuentas-por-cobrar" element={<CuentasPorCobrar />} />
+        <Route path="/cuentas-por-cobrar/reportes" element={<ReportesCxC />} />
         
         {/* Admin-only routes */}
         <Route path="/reportes" element={

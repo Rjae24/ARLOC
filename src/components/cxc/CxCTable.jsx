@@ -5,10 +5,11 @@ import {
   HiOutlineClock,
   HiOutlineExclamationTriangle,
   HiOutlineCog6Tooth,
+  HiOutlineShoppingBag,
 } from 'react-icons/hi2';
 import { FaWhatsapp, FaPhone } from 'react-icons/fa';
 import { formatUSD, formatBs, formatFecha, getWhatsAppUrl, getPhoneCallUrl } from '../../utils/formatters';
-import { generarMensajeCobroWhatsApp } from '../../services/cuentasCobrarService';
+import { generarMensajeCobroWhatsApp, calcularMoraYSaldo } from '../../services/cuentasCobrarService';
 
 export default function CxCTable({
   cuentas,
@@ -17,6 +18,7 @@ export default function CxCTable({
   empresa,
   onOpenAbonos,
   onOpenConfig,
+  onVerArticulos,
 }) {
   const [recargosPersonalizados, setRecargosPersonalizados] = useState({});
 
@@ -73,16 +75,22 @@ export default function CxCTable({
                 const pctCustom = recargosPersonalizados[c.id];
                 const pctEfectivo = pctCustom !== undefined ? parseFloat(pctCustom) || 0 : c.porcentajeAplicado;
 
-                // Cálculo con porcentaje efectivo
-                const recargoCalculadoUSD =
-                  config.aplicarRecargoAutomatico && (dias >= diasGracia || pctCustom !== undefined)
-                    ? parseFloat(((c.montoOriginalUSD * pctEfectivo) / 100).toFixed(2))
-                    : 0;
+                // Cálculo de mora y saldo con lógica contable precisa
+                const calculo = calcularMoraYSaldo({
+                  montoOriginalUSD: c.montoOriginalUSD,
+                  totalAbonadoUSD: c.totalAbonadoUSD,
+                  diasTranscurridos: dias,
+                  diasGracia: diasGracia,
+                  porcentajeRecargo: c.porcentajeAplicado,
+                  aplicarRecargoAutomatico: config.aplicarRecargoAutomatico,
+                  recargoCustom: pctCustom,
+                });
 
-                const saldoCalculadoUSD = Math.max(0, parseFloat((c.montoOriginalUSD + recargoCalculadoUSD - c.totalAbonadoUSD).toFixed(2)));
+                const recargoCalculadoUSD = calculo.recargoUSD;
+                const saldoCalculadoUSD = calculo.saldoPendienteUSD;
                 const saldoCalculadoBs = tasaValor > 0 ? parseFloat((saldoCalculadoUSD * tasaValor).toFixed(2)) : 0;
-                const esVencida = dias >= diasGracia && saldoCalculadoUSD > 0;
-                const esSolvente = saldoCalculadoUSD === 0;
+                const esVencida = calculo.esVencida;
+                const esSolvente = calculo.esSolvente;
 
                 const msgWhatsAppEncoded = cliente?.telefono
                   ? generarMensajeCobroWhatsApp({
@@ -267,6 +275,16 @@ export default function CxCTable({
 
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="btn btn--secondary btn--xs"
+                          onClick={() => onVerArticulos(c)}
+                          title="Ver qué artículos se le entregaron a crédito ese día"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                        >
+                          <HiOutlineShoppingBag /> <span className="hide-mobile">Artículos</span>
+                        </button>
+
                         {cliente?.telefono && (
                           <>
                             <a

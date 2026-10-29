@@ -28,18 +28,43 @@ export default function HistorialFacturas() {
 
   async function loadFacturas() {
     setLoading(true);
-    const { data } = await supabase
-      .from('facturas')
-      .select(`
-        *,
-        clientes(nombre, documento_identidad),
-        usuarios!facturas_vendedor_id_fkey(nombre_completo),
-        tasas_cambio(tasa_usd_bs, fecha_registro)
-      `)
-      .order('fecha_emision', { ascending: false })
-      .limit(200);
-    setFacturas(data || []);
-    setLoading(false);
+    try {
+      let allData = [];
+      const step = 1000;
+      let from = 0;
+      let hasMore = true;
+
+      // PostgREST/Supabase limita cada petición a 1000 registros.
+      // Iteramos con .range() para traer la totalidad del historial sin truncar.
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('facturas')
+          .select(`
+            *,
+            clientes(nombre, documento_identidad),
+            usuarios!facturas_vendedor_id_fkey(nombre_completo),
+            tasas_cambio(tasa_usd_bs, fecha_registro)
+          `)
+          .order('fecha_emision', { ascending: false })
+          .range(from, from + step - 1);
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allData = allData.concat(data);
+          from += step;
+          if (data.length < step) hasMore = false;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setFacturas(allData);
+    } catch (e) {
+      console.error('Error cargando historial de facturas:', e);
+      toast.error('Error al cargar historial completo');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function verDetalle(factura) {
@@ -127,7 +152,12 @@ export default function HistorialFacturas() {
       )}
 
       <div className="page__header">
-        <h1 className="page__title">Historial de Facturas</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <h1 className="page__title" style={{ margin: 0 }}>Historial de Facturas</h1>
+          <span className="badge badge--primary" style={{ fontSize: '0.85rem' }}>
+            {facturasFiltradas.length} {facturasFiltradas.length === 1 ? 'factura' : 'facturas'}
+          </span>
+        </div>
       </div>
 
       <div className="filters-bar">

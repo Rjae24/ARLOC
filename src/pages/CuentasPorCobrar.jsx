@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getEmpresaConfig } from '../utils/constants';
@@ -10,12 +11,14 @@ import {
   eliminarAbonoCxC,
   extraerCreditoFactura,
   calcularDiasTranscurridos,
+  calcularMoraYSaldo,
 } from '../services/cuentasCobrarService';
 
 import CxCStats from '../components/cxc/CxCStats';
 import CxCTable from '../components/cxc/CxCTable';
 import CxCConfigModal from '../components/cxc/CxCConfigModal';
 import CxCAbonoModal from '../components/cxc/CxCAbonoModal';
+import CxCArticulosModal from '../components/cxc/CxCArticulosModal';
 import Pagination from '../components/common/Pagination';
 
 import {
@@ -24,9 +27,11 @@ import {
   HiOutlineCog6Tooth,
   HiOutlineArrowPath,
   HiOutlineFunnel,
+  HiOutlineDocumentChartBar,
 } from 'react-icons/hi2';
 
 export default function CuentasPorCobrar() {
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [facturas, setFacturas] = useState([]);
@@ -44,6 +49,7 @@ export default function CuentasPorCobrar() {
   // Modales
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [cuentaParaAbonar, setCuentaParaAbonar] = useState(null);
+  const [cuentaParaVerArticulos, setCuentaParaVerArticulos] = useState(null);
 
   useEffect(() => {
     cargarDatos();
@@ -66,34 +72,57 @@ export default function CuentasPorCobrar() {
   async function cargarDatos() {
     setLoading(true);
     try {
-      // 1. Cargar facturas con clientes
-      const { data: factData, error: fErr } = await supabase
-        .from('facturas')
-        .select(`
-          id,
-          numero_factura,
-          cliente_id,
-          vendedor_id,
-          tasa_id,
-          total_usd,
-          total_bs,
-          metodos_pago,
-          estado,
-          fecha_emision,
-          clientes (
-            id,
-            nombre,
-            documento_identidad,
-            telefono,
-            email,
-            direccion
-          )
-        `)
-        .eq('estado', 'emitida')
-        .order('fecha_emision', { ascending: false });
+      // 1. Cargar facturas con clientes y detalles (con paginación continua por si supera 1000 registros)
+      let facturasTotales = [];
+      const step = 1000;
+      let from = 0;
+      let hasMore = true;
 
-      if (fErr) throw fErr;
-      setFacturas(factData || []);
+      while (hasMore) {
+        const { data: factData, error: fErr } = await supabase
+          .from('facturas')
+          .select(`
+            id,
+            numero_factura,
+            cliente_id,
+            vendedor_id,
+            tasa_id,
+            total_usd,
+            total_bs,
+            metodos_pago,
+            estado,
+            fecha_emision,
+            detalles_factura (
+              id,
+              producto_nombre,
+              cantidad,
+              precio_unitario_usd,
+              subtotal_usd
+            ),
+            clientes (
+              id,
+              nombre,
+              documento_identidad,
+              telefono,
+              email,
+              direccion
+            )
+          `)
+          .eq('estado', 'emitida')
+          .order('fecha_emision', { ascending: false })
+          .range(from, from + step - 1);
+
+        if (fErr) throw fErr;
+        if (factData && factData.length > 0) {
+          facturasTotales = facturasTotales.concat(factData);
+          from += step;
+          if (factData.length < step) hasMore = false;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setFacturas(facturasTotales);
 
       // 2. Cargar tasa de cambio más reciente
       const { data: tasaData } = await supabase
@@ -124,28 +153,35 @@ export default function CuentasPorCobrar() {
       const abonos = abonosMap[f.id] || [];
       const totalAbonado = abonos.reduce((sum, a) => sum + (parseFloat(a.monto_usd) || 0), 0);
 
-      // Verificación de recargo general según configuración
-      const aplicaMora = config.aplicarRecargoAutomatico && dias >= config.diasGracia;
-      const recargoUSD = aplicaMora
-        ? parseFloat(((creditoInfo.montoUSD * config.porcentajeRecargo) / 100).toFixed(2))
-        : 0;
-
-      const saldoPendienteUSD = Math.max(0, parseFloat((creditoInfo.montoUSD + recargoUSD - totalAbonado).toFixed(2)));
+      // Cálculo de mora y saldo con lógica contable precisa
+      const calculo = calcularMoraYSaldo({
+        montoOriginalUSD: creditoInfo.montoUSD,
+        totalAbonadoUSD: totalAbonado,
+        diasTranscurridos: dias,
+        diasGracia: config.diasGracia,
+        porcentajeRecargo: config.porcentajeRecargo,
+        aplicarRecargoAutomatico: config.aplicarRecargoAutomatico,
+      });
 
       res.push({
         id: f.id,
         numero_factura: f.numero_factura,
         fecha_emision: f.fecha_emision,
         cliente: f.clientes,
+        detalles_factura: f.detalles_factura || [],
+        totalFacturaUSD: parseFloat(f.total_usd || 0),
+        totalFacturaBs: parseFloat(f.total_bs || 0),
         tipoCredito: creditoInfo.tipo,
         montoOriginalUSD: creditoInfo.montoUSD,
         montoOriginalBs: creditoInfo.montoBs,
         diasTranscurridos: dias,
-        recargoUSD,
+        recargoUSD: calculo.recargoUSD,
         porcentajeAplicado: config.porcentajeRecargo,
         abonos,
         totalAbonadoUSD: parseFloat(totalAbonado.toFixed(2)),
-        saldoTotalUSD: saldoPendienteUSD,
+        saldoTotalUSD: calculo.saldoPendienteUSD,
+        esSolvente: calculo.esSolvente,
+        esVencida: calculo.esVencida,
       });
     }
 
@@ -167,16 +203,16 @@ export default function CuentasPorCobrar() {
       // Estado
       let matchEstado = true;
       if (filtroEstado === 'pendientes') {
-        matchEstado = c.saldoTotalUSD > 0;
+        matchEstado = !c.esSolvente;
       } else if (filtroEstado === 'vencidas') {
-        matchEstado = c.saldoTotalUSD > 0 && c.diasTranscurridos >= config.diasGracia;
+        matchEstado = c.esVencida;
       } else if (filtroEstado === 'solventes') {
-        matchEstado = c.saldoTotalUSD === 0;
+        matchEstado = c.esSolvente;
       }
 
       return matchSearch && matchEstado;
     });
-  }, [cuentasProcesadas, search, filtroEstado, config.diasGracia]);
+  }, [cuentasProcesadas, search, filtroEstado]);
 
   // Estadísticas globales
   const stats = useMemo(() => {
@@ -186,14 +222,14 @@ export default function CuentasPorCobrar() {
     let abonado = 0;
     let totalDias = 0;
 
-    const activas = cuentasProcesadas.filter((c) => c.saldoTotalUSD > 0);
+    const activas = cuentasProcesadas.filter((c) => !c.esSolvente);
 
     activas.forEach((c) => {
       totalPendiente += c.saldoTotalUSD;
       abonado += c.totalAbonadoUSD;
       recargos += c.recargoUSD;
       totalDias += c.diasTranscurridos;
-      if (c.diasTranscurridos >= config.diasGracia) {
+      if (c.esVencida) {
         vencidas++;
       }
     });
@@ -233,11 +269,21 @@ export default function CuentasPorCobrar() {
     if (cuentaParaAbonar && cuentaParaAbonar.id === facturaId) {
       const updatedAbonos = (abonosMap[facturaId] || []).concat(abono);
       const totalAbonado = updatedAbonos.reduce((s, a) => s + (parseFloat(a.monto_usd) || 0), 0);
+      const calc = calcularMoraYSaldo({
+        montoOriginalUSD: cuentaParaAbonar.montoOriginalUSD,
+        totalAbonadoUSD: totalAbonado,
+        diasTranscurridos: cuentaParaAbonar.diasTranscurridos,
+        diasGracia: config.diasGracia,
+        porcentajeRecargo: config.porcentajeRecargo,
+        aplicarRecargoAutomatico: config.aplicarRecargoAutomatico,
+      });
+
       setCuentaParaAbonar((prev) => ({
         ...prev,
         abonos: updatedAbonos,
         totalAbonadoUSD: totalAbonado,
-        saldoTotalUSD: Math.max(0, parseFloat((prev.montoOriginalUSD + prev.recargoUSD - totalAbonado).toFixed(2))),
+        recargoUSD: calc.recargoUSD,
+        saldoTotalUSD: calc.saldoPendienteUSD,
       }));
     }
   }
@@ -248,11 +294,21 @@ export default function CuentasPorCobrar() {
     if (cuentaParaAbonar && cuentaParaAbonar.id === facturaId) {
       const updatedAbonos = (cuentaParaAbonar.abonos || []).filter((a) => a.id !== abonoId);
       const totalAbonado = updatedAbonos.reduce((s, a) => s + (parseFloat(a.monto_usd) || 0), 0);
+      const calc = calcularMoraYSaldo({
+        montoOriginalUSD: cuentaParaAbonar.montoOriginalUSD,
+        totalAbonadoUSD: totalAbonado,
+        diasTranscurridos: cuentaParaAbonar.diasTranscurridos,
+        diasGracia: config.diasGracia,
+        porcentajeRecargo: config.porcentajeRecargo,
+        aplicarRecargoAutomatico: config.aplicarRecargoAutomatico,
+      });
+
       setCuentaParaAbonar((prev) => ({
         ...prev,
         abonos: updatedAbonos,
         totalAbonadoUSD: totalAbonado,
-        saldoTotalUSD: Math.max(0, parseFloat((prev.montoOriginalUSD + prev.recargoUSD - totalAbonado).toFixed(2))),
+        recargoUSD: calc.recargoUSD,
+        saldoTotalUSD: calc.saldoPendienteUSD,
       }));
     }
   }
@@ -307,11 +363,19 @@ export default function CuentasPorCobrar() {
           </button>
           <button
             type="button"
-            className="btn btn--primary"
+            className="btn btn--secondary"
             onClick={() => setShowConfigModal(true)}
             title="Configurar regla de días de gracia y porcentaje de recargo"
           >
-            <HiOutlineCog6Tooth /> Reglas de Recargo
+            <HiOutlineCog6Tooth /> Reglas
+          </button>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => navigate('/cuentas-por-cobrar/reportes')}
+            title="Ver reportes y auditoría de Cuentas por Cobrar"
+          >
+            <HiOutlineDocumentChartBar /> Reportes CxC
           </button>
         </div>
       </div>
@@ -354,6 +418,7 @@ export default function CuentasPorCobrar() {
         empresa={empresa}
         onOpenAbonos={(c) => setCuentaParaAbonar(c)}
         onOpenConfig={() => setShowConfigModal(true)}
+        onVerArticulos={(c) => setCuentaParaVerArticulos(c)}
       />
 
       {/* Paginación */}
@@ -362,6 +427,14 @@ export default function CuentasPorCobrar() {
         totalItems={totalItems}
         pageSize={pageSize}
         onPageChange={(p) => setCurrentPage(p)}
+      />
+
+      {/* Modal de Artículos a Crédito */}
+      <CxCArticulosModal
+        isOpen={!!cuentaParaVerArticulos}
+        cuenta={cuentaParaVerArticulos}
+        tasaValor={tasaValor}
+        onClose={() => setCuentaParaVerArticulos(null)}
       />
 
       {/* Modal de Configuración de Recargo y Días */}

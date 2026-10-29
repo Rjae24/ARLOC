@@ -9,6 +9,8 @@
  * - Generación de mensajes para cobranza directa por WhatsApp.
  */
 
+import abonosSeed from '../data/cxc_abonos_seed.json';
+
 const STORAGE_KEY_CONFIG = 'arluc_cxc_config';
 const STORAGE_KEY_ABONOS = 'arluc_cxc_abonos';
 
@@ -110,10 +112,15 @@ export function getAbonosCxC() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_ABONOS);
     if (raw) return JSON.parse(raw);
+    // Si no hay datos en localStorage, inicializar con los casos de estudio generados
+    if (abonosSeed && Object.keys(abonosSeed).length > 0) {
+      localStorage.setItem(STORAGE_KEY_ABONOS, JSON.stringify(abonosSeed));
+      return abonosSeed;
+    }
   } catch (e) {
     console.error('Error al leer abonos de CxC:', e);
   }
-  return {};
+  return abonosSeed || {};
 }
 
 /**
@@ -156,6 +163,53 @@ export function eliminarAbonoCxC(facturaId, abonoId) {
   } catch (e) {
     console.error('Error al eliminar abono en CxC:', e);
   }
+}
+
+/**
+ * Calcula de manera contable el recargo por mora y el saldo pendiente.
+ * - Si el cliente ya pagó el capital original a tiempo o lo liquidó: NO aplica mora.
+ * - La mora solo se calcula sobre el capital pendiente real no pagado.
+ */
+export function calcularMoraYSaldo({
+  montoOriginalUSD = 0,
+  totalAbonadoUSD = 0,
+  diasTranscurridos = 0,
+  diasGracia = 15,
+  porcentajeRecargo = 5,
+  aplicarRecargoAutomatico = true,
+  recargoCustom = undefined,
+}) {
+  const original = parseFloat(montoOriginalUSD) || 0;
+  const abonado = parseFloat(totalAbonadoUSD) || 0;
+
+  // Si ya cubrió el capital original, la cuenta está saldada y sin mora
+  if (abonado >= original) {
+    return {
+      recargoUSD: 0,
+      saldoPendienteUSD: 0,
+      capitalPendienteUSD: 0,
+      esSolvente: true,
+      esVencida: false,
+    };
+  }
+
+  const capitalPendienteUSD = Math.max(0, parseFloat((original - abonado).toFixed(2)));
+  const pct = recargoCustom !== undefined ? parseFloat(recargoCustom) || 0 : porcentajeRecargo;
+
+  const tieneMora =
+    (aplicarRecargoAutomatico && diasTranscurridos >= diasGracia && capitalPendienteUSD > 0) ||
+    (recargoCustom !== undefined && capitalPendienteUSD > 0);
+
+  const recargoUSD = tieneMora ? parseFloat(((capitalPendienteUSD * pct) / 100).toFixed(2)) : 0;
+  const saldoPendienteUSD = parseFloat((capitalPendienteUSD + recargoUSD).toFixed(2));
+
+  return {
+    recargoUSD,
+    saldoPendienteUSD,
+    capitalPendienteUSD,
+    esSolvente: saldoPendienteUSD === 0,
+    esVencida: diasTranscurridos >= diasGracia && saldoPendienteUSD > 0,
+  };
 }
 
 /**
