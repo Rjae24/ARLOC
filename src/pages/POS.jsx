@@ -6,6 +6,7 @@ import { formatTasa, formatUSD } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import { fetchTasaBCV } from '../services/bcvService';
 import { mergeClienteCredito } from '../services/cuentasCobrarService';
+import { contabilizarVentaEnTiempoReal } from '../services/contabilidadAutomatizacionService';
 import { HiOutlineArrowPath } from 'react-icons/hi2';
 
 // Subcomponentes modulares de Caja
@@ -676,6 +677,13 @@ export default function POS() {
         vendedor: profile,
         metodos_pago_detalle: metodosStorage,
       });
+
+      // Generar asiento contable automático en tiempo real
+      contabilizarVentaEnTiempoReal({
+        factura: { ...factura, cliente: clienteSeleccionado || null },
+        metodosPago: metodosStorage,
+        tasa: tasaHoy?.tasa_usd_bs || 876.8,
+      }).catch((e) => console.error('Error en contabilización automática POS:', e));
 
       toast.success(`Factura ${numData} emitida correctamente`);
 

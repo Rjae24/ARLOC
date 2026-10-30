@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { HiOutlineBanknotes, HiOutlineTrash, HiOutlineCheck } from 'react-icons/hi2';
 import { formatUSD, formatBs, formatFecha } from '../../utils/formatters';
 import toast from 'react-hot-toast';
+import { contabilizarAbonoEnTiempoReal } from '../../services/contabilidadAutomatizacionService';
 
 export default function CxCAbonoModal({
   isOpen,
@@ -39,6 +40,18 @@ export default function CxCAbonoModal({
     setLoading(true);
     try {
       const montoBs = tasaValor > 0 ? parseFloat((monto * tasaValor).toFixed(2)) : 0;
+      // Contabilizar abono de cobranza en tiempo real
+      contabilizarAbonoEnTiempoReal({
+        facturaId: cuenta.id,
+        abono: {
+          monto_usd: monto,
+          monto_bs: montoBs,
+          metodo: form.metodo,
+          fecha: new Date().toISOString(),
+        },
+        tasa: tasaValor,
+      }).catch((e) => console.error('Error al contabilizar abono en tiempo real:', e));
+
       onRegistrarAbono(cuenta.id, {
         monto_usd: monto,
         monto_bs: montoBs,
