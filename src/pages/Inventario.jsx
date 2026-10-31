@@ -37,14 +37,14 @@ export default function Inventario() {
 
   async function loadData() {
     setLoading(true);
-    const [prodRes, catRes, rateRes] = await Promise.all([
+    const [rateRes, prodRes, catRes] = await Promise.all([
       supabase.from('tasas_cambio').select('tasa_usd_bs').order('fecha_registro', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('productos').select('*, categorias(nombre)').order('nombre'),
       supabase.from('categorias').select('*').order('nombre'),
     ]);
-    setProductos(prodRes.data || []);
-    setCategorias(catRes.data || []);
     setTasaActual(rateRes?.data?.tasa_usd_bs || null);
+    setProductos(prodRes?.data || []);
+    setCategorias(catRes?.data || []);
     setLoading(false);
   }
 
