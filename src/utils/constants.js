@@ -3,7 +3,7 @@ export const METODOS_PAGO = [
   { id: 'efectivo_usd', label: 'Efectivo Divisa ($)', enBs: false },
   { id: 'efectivo_bs', label: 'Efectivo Bolívares (Bs)', enBs: true },
   { id: 'pago_movil', label: 'Pago Móvil', enBs: true, requiereReferencia: true },
-  { id: 'punto_venta', label: 'Punto de Venta', enBs: true, requiereReferencia: true },
+  { id: 'punto_venta', label: 'Punto de Venta', enBs: true, requiereReferencia: false, referenciaOpcional: true },
   { id: 'transferencia', label: 'Transferencia Bancaria', enBs: true, requiereReferencia: true },
   { id: 'zelle', label: 'Zelle', enBs: false, isZelle: true },
   { id: 'credito', label: 'Fiado / Crédito', enBs: false, isCredito: true },

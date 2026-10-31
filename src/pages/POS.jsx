@@ -27,7 +27,7 @@ export default function POS() {
     clienteSeleccionado: null,
     clienteSearch: '',
     carrito: [],
-    metodosPago: [],
+    metodosPago: [{ metodo: 'efectivo_usd', monto_usd: 0, monto_bs: 0, referencia: '' }],
     showPago: false,
   });
 
@@ -340,6 +340,21 @@ export default function POS() {
 
   // Totales de la cuenta
   const totalUSD = carrito.reduce((sum, item) => sum + item.subtotal, 0);
+
+  // Auto-asignar el monto total al método activo si es método único
+  useEffect(() => {
+    if (metodosPago.length === 1 && metodosPago[0].monto_usd !== totalUSD) {
+      const tasa = tasaHoy ? parseFloat(tasaHoy.tasa_usd_bs) : 0;
+      const metodoConfig = METODOS_PAGO.find((m) => m.id === metodosPago[0].metodo);
+      setMetodosPago([
+        {
+          ...metodosPago[0],
+          monto_usd: totalUSD,
+          monto_bs: metodoConfig?.enBs && tasa > 0 ? parseFloat((totalUSD * tasa).toFixed(2)) : 0,
+        },
+      ]);
+    }
+  }, [totalUSD, tasaHoy]);
   const totalBs = tasaHoy ? totalUSD * parseFloat(tasaHoy.tasa_usd_bs) : 0;
 
   function agregarMetodoPago(metodoId = '') {
@@ -805,26 +820,18 @@ export default function POS() {
           totalUSD={totalUSD}
           totalBs={totalBs}
           tasaHoy={tasaHoy}
-          showPago={showPago}
           carrito={carrito}
           clienteSeleccionado={clienteSeleccionado}
           metodosPago={metodosPago}
           loading={loading}
-          tieneCashea={tieneCashea}
           tieneCredito={tieneCredito}
           montoCredito={montoCredito}
           totalPagadoEnTienda={totalPagadoEnTienda}
-          casheaCreditoUSD={casheaCreditoUSD}
           restante={restante}
-          onIniciarCobro={iniciarCobro}
           onAgregarMetodoPago={agregarMetodoPago}
           onActualizarMetodoPago={actualizarMetodoPago}
           onQuitarMetodoPago={quitarMetodoPago}
           onEmitirFactura={emitirFactura}
-          onVolverAlCarrito={() => {
-            setShowPago(false);
-            setMetodosPago([]);
-          }}
           onLimpiarCaja={limpiarCajaActual}
         />
       </div>
