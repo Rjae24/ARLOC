@@ -196,6 +196,9 @@ export default function Reportes() {
     .sort((a, b) => b.total_usd - a.total_usd);
   const maxVendedorUSD = listaVendedores[0]?.total_usd || 1;
 
+  // Días del período seleccionado
+  const diasPeriodo = Math.max(1, Math.round((new Date(fechaHasta) - new Date(fechaDesde)) / (1000 * 60 * 60 * 24)) + 1);
+
   // Inventario
   const valorInventarioUSD = inventario.reduce((s, p) => s + (p.stock * parseFloat(p.precio_usd || 0)), 0);
   const productosBajoStock = inventario.filter(p => p.stock <= p.stock_minimo);
@@ -523,10 +526,12 @@ export default function Reportes() {
         />
       )}
 
-      {/* ── Pestaña 5: Inventario Valorizado ───────────────────────── */}
+      {/* ── Pestaña 5: Inventario Valorizado & Proyección ─────────── */}
       {activeTab === 'inventario' && (
         <InventarioValorizado
           inventario={inventario}
+          rankingProductos={rankingProductos}
+          diasPeriodo={diasPeriodo}
           valorInventarioUSD={valorInventarioUSD}
           tasaBsRef={tasaBsRef}
           productosBajoStock={productosBajoStock}
