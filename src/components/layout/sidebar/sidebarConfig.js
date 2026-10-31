@@ -5,14 +5,15 @@ import {
   HiOutlineTruck,
   HiOutlineCurrencyDollar,
   HiOutlineCog6Tooth,
-  HiOutlineBookOpen,
   HiOutlineBuildingStorefront,
 } from 'react-icons/hi2';
 
 /**
- * Estructura de departamentos y módulos del ERP ARLUC.
- * - Los elementos individuales (Dashboard, Inventario) son enlaces directos sin acordeón.
- * - Los departamentos con múltiples funciones (Ventas, Compras, Contabilidad, etc.) se despliegan de forma ramificada.
+ * Estructura de departamentos y módulos para la versión Bodeguita.
+ * - Enfocado en operación rápida: Caja (POS), Historial, Clientes, Cuentas por Cobrar (Fiados).
+ * - Inventario directo y ágil.
+ * - Proveedores y Tasa de Cambio del día.
+ * - Sin sobrecarga contable innecesaria.
  */
 export const adminNavigationGroups = [
   {
@@ -23,58 +24,46 @@ export const adminNavigationGroups = [
   },
   {
     id: 'ventas',
-    label: 'Ventas y Facturación',
+    label: 'Ventas y Caja',
     icon: HiOutlineShoppingCart,
     items: [
       { to: '/pos', label: 'Punto de Venta (Caja)' },
-      { to: '/historial', label: 'Historial de Facturas' },
+      { to: '/historial', label: 'Historial de Ventas' },
       { to: '/clientes', label: 'Directorio de Clientes' },
-      { to: '/cuentas-por-cobrar', label: 'Cuentas por Cobrar' },
+      { to: '/cuentas-por-cobrar', label: 'Control de Fiados (CxC)' },
     ],
   },
   {
     id: 'inventario',
-    label: 'Inventario',
+    label: 'Inventario de Productos',
     icon: HiOutlineCube,
     to: '/inventario',
   },
   {
     id: 'compras',
-    label: 'Compras y Proveedores',
+    label: 'Proveedores',
     icon: HiOutlineTruck,
     items: [
-      { to: '/proveedores', label: 'Proveedores' },
-      { to: '/ordenes-compra', label: 'Órdenes de Compra' },
-    ],
-  },
-  {
-    id: 'contabilidad',
-    label: 'Contabilidad General',
-    icon: HiOutlineBookOpen,
-    items: [
-      { to: '/contabilidad/plan-cuentas', label: 'Plan de Cuentas' },
-      { to: '/contabilidad/libro-diario', label: 'Libro Diario' },
-      { to: '/contabilidad/libro-mayor', label: 'Libro Mayor' },
-      { to: '/contabilidad/balance-comprobacion', label: 'Balance de Comprobación' },
-      { to: '/contabilidad/estados-financieros', label: 'Estados Financieros' },
+      { to: '/proveedores', label: 'Directorio Proveedores' },
+      { to: '/ordenes-compra', label: 'Registro de Compras' },
     ],
   },
   {
     id: 'finanzas',
-    label: 'Finanzas y Tesorería',
+    label: 'Caja y Tasa del Día',
     icon: HiOutlineCurrencyDollar,
     items: [
-      { to: '/tasa-cambio', label: 'Tasa de Cambio' },
-      { to: '/reportes', label: 'Reportes Financieros' },
+      { to: '/tasa-cambio', label: 'Tasa BCV del Día' },
+      { to: '/reportes', label: 'Reportes de Ventas' },
     ],
   },
   {
     id: 'administracion',
-    label: 'Administración',
+    label: 'Ajustes del Sistema',
     icon: HiOutlineCog6Tooth,
     items: [
-      { to: '/usuarios', label: 'Gestión de Usuarios' },
-      { to: '/configuracion', label: 'Configuración Empresa' },
+      { to: '/usuarios', label: 'Cajeros y Usuarios' },
+      { to: '/configuracion', label: 'Datos del Negocio' },
     ],
   },
 ];
@@ -82,7 +71,7 @@ export const adminNavigationGroups = [
 export const vendedorNavigationGroups = [
   {
     id: 'dashboard',
-    label: 'Mi Dashboard',
+    label: 'Mi Turno',
     icon: HiOutlineHome,
     to: '/dashboard',
   },
@@ -91,9 +80,9 @@ export const vendedorNavigationGroups = [
     label: 'Ventas',
     icon: HiOutlineBuildingStorefront,
     items: [
-      { to: '/pos', label: 'Punto de Venta (Caja)' },
+      { to: '/pos', label: 'Caja / Cobrar' },
       { to: '/clientes', label: 'Clientes' },
-      { to: '/cuentas-por-cobrar', label: 'Cuentas por Cobrar' },
+      { to: '/cuentas-por-cobrar', label: 'Fiados Pendientes' },
     ],
   },
 ];

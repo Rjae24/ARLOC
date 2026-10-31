@@ -1,24 +1,16 @@
-// Métodos de pago disponibles en el sistema
+// Métodos de pago adaptados para Bodeguita / Comercio Rápido
 export const METODOS_PAGO = [
-  { id: 'efectivo_usd', label: 'Efectivo USD', enBs: false },
-  { id: 'efectivo_bs', label: 'Efectivo Bs', enBs: true },
-  { id: 'zelle', label: 'Zelle', enBs: false, isZelle: true },
+  { id: 'efectivo_usd', label: 'Efectivo Divisa ($)', enBs: false },
+  { id: 'efectivo_bs', label: 'Efectivo Bolívares (Bs)', enBs: true },
   { id: 'pago_movil', label: 'Pago Móvil', enBs: true, requiereReferencia: true },
   { id: 'punto_venta', label: 'Punto de Venta', enBs: true, requiereReferencia: true },
-  { id: 'transferencia', label: 'Transferencia', enBs: true, requiereReferencia: true },
-  { id: 'cashea', label: 'Cashea', enBs: true, isCashea: true, requiereReferencia: true },
-  { id: 'credito', label: 'Crédito', enBs: false, isCredito: true },
+  { id: 'transferencia', label: 'Transferencia Bancaria', enBs: true, requiereReferencia: true },
+  { id: 'zelle', label: 'Zelle', enBs: false, isZelle: true },
+  { id: 'credito', label: 'Fiado / Crédito', enBs: false, isCredito: true },
 ];
 
-// Métodos para pagar la inicial de Cashea
-export const METODOS_INICIAL_CASHEA = [
-  { id: 'punto_venta', label: 'Punto de Venta', requiereReferencia: true },
-  { id: 'pago_movil', label: 'Pago Móvil', requiereReferencia: true },
-  { id: 'efectivo_usd', label: 'Efectivo USD', requiereReferencia: false },
-  { id: 'efectivo_bs', label: 'Efectivo Bs', requiereReferencia: false },
-  { id: 'transferencia', label: 'Transferencia', requiereReferencia: true },
-  { id: 'zelle', label: 'Zelle', requiereReferencia: true },
-];
+// Métodos auxiliares compatibles
+export const METODOS_INICIAL_CASHEA = [];
 
 // Roles del sistema
 export const ROLES = {
@@ -47,12 +39,12 @@ export const PRINT_WIDTHS = {
 
 // Configuración por defecto de la empresa
 export const DEFAULT_EMPRESA = {
-  nombre: 'COMERCIALIZADORA ARLUC C.A.',
+  nombre: 'MI BODEGUITA C.A.',
   rif: 'J-50123456-7',
-  direccion: 'Caracas, Venezuela',
-  telefono: '0414-1234567',
+  direccion: 'Calle Principal, Local Comercial',
+  telefono: '0414-0000000',
   logo: '/logo-arluc.jpg',
-  slogan: '¡Gracias por su compra!',
+  slogan: '¡Gracias por su compra, vuelva pronto!',
 };
 
 export function getEmpresaConfig() {
@@ -78,6 +70,3 @@ export function saveEmpresaConfig(config) {
     console.error('Error guardando config de empresa:', e);
   }
 }
-
-export const EMPRESA = DEFAULT_EMPRESA;
-
