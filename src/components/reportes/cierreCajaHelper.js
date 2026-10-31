@@ -94,3 +94,4 @@ export function procesarCierreCaja(facturasEmitidas, tasaRef = 1) {
     totalRecaudadoBs,
   };
 }
+

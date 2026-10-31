@@ -160,3 +160,4 @@ export default function CierreCajaTable({ cierreCaja, facturasEmitidas, totalUSD
     </div>
   );
 }
+

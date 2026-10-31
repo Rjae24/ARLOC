@@ -243,3 +243,4 @@ export function exportarInventarioExcel({ inventario, tasaBsRef }) {
   XLSX.writeFile(wb, `Inventario_Bodega_${fechaStr}.xlsx`);
   toast.success('Inventario Excel (.xlsx) descargado correctamente');
 }
+
