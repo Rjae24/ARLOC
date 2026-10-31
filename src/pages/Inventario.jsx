@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { formatUSD, formatFecha } from '../utils/formatters';
+import { formatUSD, formatBs, formatFecha } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import Pagination from '../components/common/Pagination';
 import {
@@ -14,6 +14,7 @@ import ModalImprimirEtiquetas from '../components/print/ModalImprimirEtiquetas';
 export default function Inventario() {
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  const [tasaActual, setTasaActual] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
@@ -36,12 +37,14 @@ export default function Inventario() {
 
   async function loadData() {
     setLoading(true);
-    const [prodRes, catRes] = await Promise.all([
+    const [prodRes, catRes, rateRes] = await Promise.all([
+      supabase.from('tasas_cambio').select('tasa_usd_bs').order('fecha_registro', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('productos').select('*, categorias(nombre)').order('nombre'),
       supabase.from('categorias').select('*').order('nombre'),
     ]);
     setProductos(prodRes.data || []);
     setCategorias(catRes.data || []);
+    setTasaActual(rateRes?.data?.tasa_usd_bs || null);
     setLoading(false);
   }
 
@@ -234,7 +237,7 @@ export default function Inventario() {
                 <th>SKU</th>
                 <th>Nombre</th>
                 <th>Categoría</th>
-                <th>Precio USD</th>
+                <th>Precio (USD / Bs)</th>
                 <th>Stock</th>
                 <th>Estado</th>
                 <th>Acciones</th>
@@ -246,7 +249,14 @@ export default function Inventario() {
                   <td><code>{p.sku}</code></td>
                   <td>{p.nombre}</td>
                   <td>{p.categorias?.nombre || '—'}</td>
-                  <td>{formatUSD(p.precio_usd)}</td>
+                  <td>
+                    <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{formatUSD(p.precio_usd)}</div>
+                    {tasaActual && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                        {formatBs(parseFloat(p.precio_usd || 0) * tasaActual)}
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <span className={`badge ${p.stock <= p.stock_minimo ? (p.stock === 0 ? 'badge--danger' : 'badge--warning') : 'badge--success'}`}>
                       {p.stock}

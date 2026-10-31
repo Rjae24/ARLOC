@@ -785,12 +785,14 @@ export default function POS() {
             productoSearchRef={productoSearchRef}
             productoSearch={productoSearch}
             productoResults={productoResults}
+            tasaHoy={tasaHoy}
             onSearchChange={searchProductos}
             onSelectProducto={agregarAlCarrito}
           />
 
           <POSCartSection
             carrito={carrito}
+            tasaHoy={tasaHoy}
             clienteSeleccionado={clienteSeleccionado}
             onActualizarCantidad={actualizarCantidad}
             onQuitarDelCarrito={quitarDelCarrito}
