@@ -36,7 +36,13 @@ export default function POS() {
       const saved = localStorage.getItem('arluc_pos_cuentas');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((c, idx) => ({
+            ...c,
+            metodosPago: Array.isArray(c.metodosPago) && c.metodosPago.length > 0 ? c.metodosPago : [{ metodo: 'efectivo_usd', monto_usd: 0, monto_bs: 0, referencia: '' }],
+            carrito: Array.isArray(c.carrito) ? c.carrito : []
+          }));
+        }
       }
     } catch (e) {
       console.error('Error loading saved cuentas:', e);
