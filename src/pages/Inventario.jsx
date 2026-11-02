@@ -2,14 +2,18 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { formatUSD, formatBs, formatFecha } from '../utils/formatters';
+import { parseProductoMeta } from '../utils/productoMetaUtils';
 import toast from 'react-hot-toast';
 import Pagination from '../components/common/Pagination';
 import {
   HiOutlinePlus, HiOutlinePencilSquare, HiOutlineTrash,
   HiOutlineMagnifyingGlass, HiOutlineFunnel, HiOutlineTag, HiOutlineDocumentChartBar,
+  HiOutlineCube,
 } from 'react-icons/hi2';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ModalImprimirEtiquetas from '../components/print/ModalImprimirEtiquetas';
+import ModalProductoForm from '../components/inventario/ModalProductoForm';
+import ModalDesincorporarEmpaque from '../components/inventario/ModalDesincorporarEmpaque';
 
 export default function Inventario() {
   const [productos, setProductos] = useState([]);
@@ -22,7 +26,9 @@ export default function Inventario() {
   const [showModal, setShowModal] = useState(false);
   const [showCatModal, setShowCatModal] = useState(false);
   const [showEtiquetasModal, setShowEtiquetasModal] = useState(false);
+  const [showAbrirModal, setShowAbrirModal] = useState(false);
   const [productoParaEtiqueta, setProductoParaEtiqueta] = useState(null);
+  const [productoParaAbrir, setProductoParaAbrir] = useState(null);
   const [editando, setEditando] = useState(null);
   const [catEditando, setCatEditando] = useState(null);
   const [form, setForm] = useState({
@@ -49,23 +55,27 @@ export default function Inventario() {
     setLoading(false);
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!form.sku?.trim() || !form.nombre?.trim()) {
+  async function handleSubmit(e, dataFromModal) {
+    if (e && e.preventDefault) e.preventDefault();
+    const source = dataFromModal || form;
+
+    if (!source.sku?.trim() || !source.nombre?.trim()) {
       toast.error('El código SKU y el nombre son obligatorios');
       return;
     }
 
     setGuardando(true);
+    // Para stock en productos pesados o detallados
+    const stockParsed = parseFloat(source.stock) || 0;
     const payload = {
-      sku: form.sku.trim().toUpperCase(),
-      nombre: form.nombre.trim(),
-      descripcion: form.descripcion?.trim() || null,
-      precio_usd: Math.max(0, parseFloat(form.precio_usd) || 0),
-      stock: Math.max(0, parseInt(form.stock) || 0),
-      stock_minimo: Math.max(0, parseInt(form.stock_minimo) || 5),
-      categoria_id: form.categoria_id || null,
-      activo: Boolean(form.activo),
+      sku: source.sku.trim().toUpperCase(),
+      nombre: source.nombre.trim(),
+      descripcion: source.descripcion?.trim() || null,
+      precio_usd: Math.max(0, parseFloat(source.precio_usd) || 0),
+      stock: Math.max(0, stockParsed),
+      stock_minimo: Math.max(0, parseFloat(source.stock_minimo) || 5),
+      categoria_id: source.categoria_id || null,
+      activo: Boolean(source.activo),
     };
 
     try {
@@ -254,48 +264,83 @@ export default function Inventario() {
               </tr>
             </thead>
             <tbody>
-              {productosPaginados.map(p => (
-                <tr key={p.id}>
-                  <td><code>{p.sku}</code></td>
-                  <td>{p.nombre}</td>
-                  <td>{p.categorias?.nombre || '—'}</td>
-                  <td>
-                    <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{formatUSD(p.precio_usd)}</div>
-                    {tasaActual && (
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                        {formatBs(parseFloat(p.precio_usd || 0) * tasaActual)}
+              {productosPaginados.map(p => {
+                const meta = parseProductoMeta(p);
+                const esPeso = meta.unidad === 'kg';
+                const esDetallado = meta.esDetallado;
+
+                return (
+                  <tr key={p.id}>
+                    <td><code>{p.sku}</code></td>
+                    <td>
+                      <div>
+                        <strong>{p.nombre}</strong>
+                        {esDetallado && (
+                          <div style={{ fontSize: '0.74rem', color: 'var(--primary, #10B981)', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '2px' }}>
+                            <span>✂️ Detallado (Factor: {meta.factor || 1}/empaque)</span>
+                          </div>
+                        )}
+                        {esPeso && (
+                          <div style={{ fontSize: '0.74rem', color: '#F59E0B', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '2px' }}>
+                            <span>⚖️ Venta por Peso (Kg / Fracción)</span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </td>
-                  <td>
-                    <span className={`badge ${p.stock <= p.stock_minimo ? (p.stock === 0 ? 'badge--danger' : 'badge--warning') : 'badge--success'}`}>
-                      {p.stock}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge ${p.activo ? 'badge--success' : 'badge--ghost'}`}>
-                      {p.activo ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="table__actions">
-                      <button
-                        className="btn btn--ghost btn--xs"
-                        onClick={() => abrirModalEtiquetas(p)}
-                        title="Imprimir Código de Barras"
-                      >
-                        <HiOutlineTag />
-                      </button>
-                      <button className="btn btn--ghost btn--xs" onClick={() => editarProducto(p)} title="Editar">
-                        <HiOutlinePencilSquare />
-                      </button>
-                      <button className="btn btn--ghost btn--xs text-danger" onClick={() => setProdToDelete(p)} title="Eliminar Producto">
-                        <HiOutlineTrash />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>{p.categorias?.nombre || '—'}</td>
+                    <td>
+                      <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>
+                        {formatUSD(p.precio_usd)} {esPeso ? '/ kg' : ''}
+                      </div>
+                      {tasaActual && (
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          {formatBs(parseFloat(p.precio_usd || 0) * tasaActual)} {esPeso ? '/ kg' : ''}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge ${p.stock <= p.stock_minimo ? (p.stock === 0 ? 'badge--danger' : 'badge--warning') : 'badge--success'}`}>
+                        {p.stock} {esPeso ? 'kg' : (esDetallado ? 'und (sueltas)' : 'und')}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${p.activo ? 'badge--success' : 'badge--ghost'}`}>
+                        {p.activo ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="table__actions">
+                        {esDetallado && (
+                          <button
+                            className="btn btn--secondary btn--xs"
+                            onClick={() => {
+                              setProductoParaAbrir(p);
+                              setShowAbrirModal(true);
+                            }}
+                            title="Abrir Empaque Cerrado"
+                            style={{ gap: '0.2rem', padding: '0.25rem 0.5rem', fontWeight: 600 }}
+                          >
+                            <HiOutlineCube /> Abrir
+                          </button>
+                        )}
+                        <button
+                          className="btn btn--ghost btn--xs"
+                          onClick={() => abrirModalEtiquetas(p)}
+                          title="Imprimir Código de Barras"
+                        >
+                          <HiOutlineTag />
+                        </button>
+                        <button className="btn btn--ghost btn--xs" onClick={() => editarProducto(p)} title="Editar">
+                          <HiOutlinePencilSquare />
+                        </button>
+                        <button className="btn btn--ghost btn--xs text-danger" onClick={() => setProdToDelete(p)} title="Eliminar Producto">
+                          <HiOutlineTrash />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {productosFiltrados.length === 0 && (
                 <tr><td colSpan="7" className="table__empty">No se encontraron productos</td></tr>
               )}
@@ -310,100 +355,30 @@ export default function Inventario() {
         />
       </div>
 
-      {/* Product Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal__header">
-              <h2>{editando ? 'Editar Producto' : 'Nuevo Producto'}</h2>
-              <button className="modal__close" onClick={() => setShowModal(false)}>×</button>
-            </div>
-            <form onSubmit={handleSubmit} className="modal__body">
-              <div className="form-row">
-                <div className="form-group">
-                  <label>SKU / Código</label>
-                  <input
-                    type="text"
-                    value={form.sku}
-                    onChange={e => setForm({...form, sku: e.target.value})}
-                    placeholder="Ej. PROD-001"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Nombre del Producto</label>
-                  <input
-                    type="text"
-                    value={form.nombre}
-                    onChange={e => setForm({...form, nombre: e.target.value})}
-                    placeholder="Ej. Altavoz Bluetooth 15''"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Descripción</label>
-                <textarea
-                  value={form.descripcion}
-                  onChange={e => setForm({...form, descripcion: e.target.value})}
-                  rows="2"
-                  placeholder="Detalles técnicos, especificaciones..."
-                />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Precio (USD)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.precio_usd}
-                    onChange={e => setForm({...form, precio_usd: e.target.value})}
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Stock Actual</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={form.stock}
-                    onChange={e => setForm({...form, stock: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Stock Mínimo (Alerta)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={form.stock_minimo}
-                    onChange={e => setForm({...form, stock_minimo: e.target.value})}
-                    required
-                  />
-                </div>
-              </div>
+      {/* Modal de Producto Modular */}
+      <ModalProductoForm
+        show={showModal}
+        editando={editando}
+        form={form}
+        setForm={setForm}
+        categorias={categorias}
+        productos={productos}
+        guardando={guardando}
+        onSubmit={handleSubmit}
+        onClose={() => { setShowModal(false); setEditando(null); }}
+      />
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Categoría</label>
-                  <select value={form.categoria_id} onChange={e => setForm({...form, categoria_id: e.target.value})}>
-                    <option value="">Sin categoría</option>
-                    {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="checkbox-label">
-                    <input type="checkbox" checked={form.activo} onChange={e => setForm({...form, activo: e.target.checked})} />
-                    Producto activo
-                  </label>
-                </div>
-              </div>
-              <button type="submit" className="btn btn--primary btn--full" disabled={guardando} style={{ minHeight: '46px', fontSize: '1rem', fontWeight: 'bold' }}>{guardando ? 'Guardando...' : (editando ? 'Guardar Cambios' : 'Crear Producto')}</button>
-            </form>
-          </div>
-        </div>
+      {/* Modal para Abrir Empaque Cerrado */}
+      {showAbrirModal && (
+        <ModalDesincorporarEmpaque
+          producto={productoParaAbrir}
+          productos={productos}
+          onClose={() => {
+            setShowAbrirModal(false);
+            setProductoParaAbrir(null);
+          }}
+          onSuccess={loadData}
+        />
       )}
 
       {/* Category Modal with Management */}

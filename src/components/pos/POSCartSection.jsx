@@ -71,23 +71,43 @@ export default function POSCartSection({
                     <button
                       type="button"
                       className="btn btn--ghost btn--xs pos-qty-btn"
-                      onClick={() => onActualizarCantidad(item.producto_id, item.cantidad - 1)}
+                      onClick={() => {
+                        const step = item.unidad === 'kg' ? 0.1 : 1;
+                        const dec = item.unidad === 'kg' ? 3 : 0;
+                        const nueva = Math.max(step, parseFloat((item.cantidad - step).toFixed(dec)));
+                        onActualizarCantidad(item.producto_id, nueva);
+                      }}
                       title="Disminuir cantidad"
                     >
                       −
                     </button>
-                    <input
-                      type="number"
-                      className="pos-cart-item__qty"
-                      value={item.cantidad}
-                      min={1}
-                      max={item.stock_disponible}
-                      onChange={(e) => onActualizarCantidad(item.producto_id, parseInt(e.target.value) || 1)}
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                      <input
+                        type="number"
+                        className="pos-cart-item__qty"
+                        value={item.cantidad}
+                        step={item.unidad === 'kg' ? '0.005' : '1'}
+                        min={item.unidad === 'kg' ? 0.001 : 1}
+                        max={item.stock_disponible}
+                        onChange={(e) => {
+                          const val = item.unidad === 'kg' ? parseFloat(e.target.value) : parseInt(e.target.value);
+                          onActualizarCantidad(item.producto_id, isNaN(val) ? 0 : val);
+                        }}
+                        style={{ width: item.unidad === 'kg' ? '65px' : '48px', textAlign: 'center' }}
+                      />
+                      {item.unidad === 'kg' && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600 }}>kg</span>
+                      )}
+                    </div>
                     <button
                       type="button"
                       className="btn btn--ghost btn--xs pos-qty-btn"
-                      onClick={() => onActualizarCantidad(item.producto_id, item.cantidad + 1)}
+                      onClick={() => {
+                        const step = item.unidad === 'kg' ? 0.1 : 1;
+                        const dec = item.unidad === 'kg' ? 3 : 0;
+                        const nueva = parseFloat((item.cantidad + step).toFixed(dec));
+                        onActualizarCantidad(item.producto_id, nueva);
+                      }}
                       title="Aumentar cantidad"
                     >
                       +

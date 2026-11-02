@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { fetchTasaBCV } from '../services/bcvService';
 import { mergeClienteCredito } from '../services/cuentasCobrarService';
 import { contabilizarVentaEnTiempoReal } from '../services/contabilidadAutomatizacionService';
+import { parseProductoMeta } from '../utils/productoMetaUtils';
 import { HiOutlineArrowPath } from 'react-icons/hi2';
 
 // Subcomponentes modulares de Caja
@@ -291,16 +292,20 @@ export default function POS() {
 
   // Agregar producto al carrito
   function agregarAlCarrito(producto) {
+    const meta = parseProductoMeta(producto);
+    const esPeso = meta.unidad === 'kg';
+    const delta = esPeso ? 1.0 : 1;
     const existente = carrito.find((item) => item.producto_id === producto.id);
     if (existente) {
-      if (existente.cantidad + 1 > producto.stock) {
+      if (existente.cantidad + delta > producto.stock) {
         toast.error(`Stock insuficiente. Disponible: ${producto.stock}`);
         return;
       }
+      const nuevaCant = parseFloat((existente.cantidad + delta).toFixed(3));
       setCarrito(
         carrito.map((item) =>
           item.producto_id === producto.id
-            ? { ...item, cantidad: item.cantidad + 1, subtotal: (item.cantidad + 1) * item.precio_unitario }
+            ? { ...item, cantidad: nuevaCant, subtotal: parseFloat((nuevaCant * item.precio_unitario).toFixed(2)) }
             : item
         )
       );
@@ -311,9 +316,11 @@ export default function POS() {
           producto_id: producto.id,
           producto_nombre: producto.nombre,
           precio_unitario: parseFloat(producto.precio_usd),
-          cantidad: 1,
+          cantidad: esPeso ? 1.0 : 1,
           subtotal: parseFloat(producto.precio_usd),
           stock_disponible: producto.stock,
+          unidad: meta.unidad,
+          esDetallado: meta.esDetallado,
         },
       ]);
     }
@@ -325,15 +332,19 @@ export default function POS() {
   // Actualizar cantidad en carrito
   function actualizarCantidad(productoId, nuevaCantidad) {
     const item = carrito.find((i) => i.producto_id === productoId);
-    if (nuevaCantidad < 1) return;
+    if (!item) return;
+    const esPeso = item.unidad === 'kg';
+    const minVal = esPeso ? 0.001 : 1;
+    if (nuevaCantidad < minVal) return;
     if (nuevaCantidad > item.stock_disponible) {
       toast.error(`Stock insuficiente. Disponible: ${item.stock_disponible}`);
       return;
     }
+    const cantFinal = esPeso ? parseFloat(Number(nuevaCantidad).toFixed(3)) : parseInt(nuevaCantidad);
     setCarrito(
       carrito.map((i) =>
         i.producto_id === productoId
-          ? { ...i, cantidad: nuevaCantidad, subtotal: nuevaCantidad * i.precio_unitario }
+          ? { ...i, cantidad: cantFinal, subtotal: parseFloat((cantFinal * i.precio_unitario).toFixed(2)) }
           : i
       )
     );

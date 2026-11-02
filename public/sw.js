@@ -13,3 +13,4 @@ self.addEventListener('fetch', (event) => {
   // Passthrough a la red
   event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
 });
+
