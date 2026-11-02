@@ -1433,6 +1433,34 @@ a:hover { color: var(--primary-hover); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+
+.modal__close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  line-height: 1;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal__close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.modal__body {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
 .modal__header {
   display: flex;
   align-items: center;
@@ -2291,6 +2319,21 @@ a:hover { color: var(--primary-hover); }
     align-items: stretch;
     gap: 0.75rem;
     margin-bottom: 1rem;
+  }
+
+  .page__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .page__actions > * {
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 140px;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
   }
 
   .page__title {

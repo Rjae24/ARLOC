@@ -32,6 +32,7 @@ export default function Inventario() {
   const [prodToDelete, setProdToDelete] = useState(null);
   const [catToDelete, setCatToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [guardando, setGuardando] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
@@ -50,33 +51,42 @@ export default function Inventario() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!form.sku?.trim() || !form.nombre?.trim()) {
+      toast.error('El código SKU y el nombre son obligatorios');
+      return;
+    }
+
+    setGuardando(true);
     const payload = {
-      sku: form.sku,
-      nombre: form.nombre,
-      descripcion: form.descripcion,
-      precio_usd: parseFloat(form.precio_usd),
-      stock: parseInt(form.stock),
-      stock_minimo: parseInt(form.stock_minimo),
+      sku: form.sku.trim().toUpperCase(),
+      nombre: form.nombre.trim(),
+      descripcion: form.descripcion?.trim() || null,
+      precio_usd: Math.max(0, parseFloat(form.precio_usd) || 0),
+      stock: Math.max(0, parseInt(form.stock) || 0),
+      stock_minimo: Math.max(0, parseInt(form.stock_minimo) || 5),
       categoria_id: form.categoria_id || null,
-      activo: form.activo,
+      activo: Boolean(form.activo),
     };
 
     try {
       if (editando) {
         const { error } = await supabase.from('productos').update(payload).eq('id', editando.id);
         if (error) throw error;
-        toast.success('Producto actualizado');
+        toast.success('Producto actualizado correctamente');
       } else {
         const { error } = await supabase.from('productos').insert(payload);
         if (error) throw error;
-        toast.success('Producto creado');
+        toast.success('Producto creado correctamente');
       }
       setShowModal(false);
       setEditando(null);
       resetForm();
-      loadData();
+      await loadData();
     } catch (error) {
-      toast.error(error.message || 'Error al guardar');
+      console.error('Error al guardar producto:', error);
+      toast.error(error.message || 'Error al guardar producto');
+    } finally {
+      setGuardando(false);
     }
   }
 
@@ -390,7 +400,7 @@ export default function Inventario() {
                   </label>
                 </div>
               </div>
-              <button type="submit" className="btn btn--primary btn--full">{editando ? 'Guardar Cambios' : 'Crear Producto'}</button>
+              <button type="submit" className="btn btn--primary btn--full" disabled={guardando} style={{ minHeight: '46px', fontSize: '1rem', fontWeight: 'bold' }}>{guardando ? 'Guardando...' : (editando ? 'Guardar Cambios' : 'Crear Producto')}</button>
             </form>
           </div>
         </div>
