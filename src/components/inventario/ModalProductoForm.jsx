@@ -13,15 +13,21 @@ export default function ModalProductoForm({
   onSubmit,
   onClose,
 }) {
-  const [tipoProducto, setTipoProducto] = useState('unidad'); // 'unidad' | 'peso' | 'detallado'
+  const [tipoProducto, setTipoProducto] = useState('unidad'); // 'unidad' | 'peso' | 'detallado' | 'combo_detallado'
   const [padreId, setPadreId] = useState('');
   const [factor, setFactor] = useState(20);
+  const [detalladoOrigenId, setDetalladoOrigenId] = useState('');
+  const [unidadesQueConsume, setUnidadesQueConsume] = useState(10);
 
   useEffect(() => {
     if (show) {
       if (editando) {
         const meta = parseProductoMeta(editando);
-        if (meta.esDetallado) {
+        if (meta.esComboDetallado) {
+          setTipoProducto('combo_detallado');
+          setDetalladoOrigenId(meta.detalladoOrigenId || '');
+          setUnidadesQueConsume(meta.unidadesQueConsume || 10);
+        } else if (meta.esDetallado) {
           setTipoProducto('detallado');
           setPadreId(meta.padreId || '');
           setFactor(meta.factor || 20);
@@ -34,6 +40,8 @@ export default function ModalProductoForm({
         setTipoProducto('unidad');
         setPadreId('');
         setFactor(20);
+        setDetalladoOrigenId('');
+        setUnidadesQueConsume(10);
       }
     }
   }, [show, editando]);
@@ -42,23 +50,36 @@ export default function ModalProductoForm({
 
   // Filtrar empaques cerrados elegibles (que no sean detallados a su vez)
   const empaquesDisponibles = productos.filter(p => !editando || p.id !== editando.id);
+  // Productos detallados sueltos elegibles para combos como "Media Caja"
+  const detalladosDisponibles = productos.filter(p => {
+    if (editando && p.id === editando.id) return false;
+    const m = parseProductoMeta(p);
+    return m.esDetallado;
+  });
 
   function handleSubmitLocal(e) {
     e.preventDefault();
     let unidad = 'und';
     let esDetallado = false;
+    let esComboDetallado = false;
 
     if (tipoProducto === 'peso') {
       unidad = 'kg';
     } else if (tipoProducto === 'detallado') {
       unidad = 'und';
       esDetallado = true;
+    } else if (tipoProducto === 'combo_detallado') {
+      unidad = 'und';
+      esComboDetallado = true;
     }
 
     const descFinal = encodeProductoMeta({
       unidad,
       esDetallado,
+      esComboDetallado,
       padreId: esDetallado ? padreId : null,
+      detalladoOrigenId: esComboDetallado ? detalladoOrigenId : null,
+      unidadesQueConsume: esComboDetallado ? unidadesQueConsume : 1,
       factor: esDetallado ? factor : 1,
       descripcionTexto: form.descripcionTexto || form.descripcion,
     });
@@ -67,6 +88,7 @@ export default function ModalProductoForm({
       ...form,
       unidad_medida: unidad,
       es_detallado: esDetallado,
+      es_combo_detallado: esComboDetallado,
       producto_padre_id: esDetallado ? padreId : null,
       factor_conversion: esDetallado ? factor : 1,
       descripcion: descFinal,
@@ -112,13 +134,58 @@ export default function ModalProductoForm({
               >
                 ✂️ Detallado (Suelto)
               </button>
+              <button
+                type="button"
+                className={`btn btn--xs ${tipoProducto === 'combo_detallado' ? 'btn--primary' : 'btn--outline'}`}
+                onClick={() => setTipoProducto('combo_detallado')}
+                style={{ minHeight: '40px', justifyContent: 'center' }}
+              >
+                🧩 Combo Detallado (Ej. Media Caja)
+              </button>
             </div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.4rem' }}>
               {tipoProducto === 'peso' && 'Ej: Queso, tomate, plátano, jamón. Admite ventas fraccionadas.'}
               {tipoProducto === 'detallado' && 'Ej: Cigarros sueltos, catalinas, panes, cocadas. Proviene de un empaque.'}
+              {tipoProducto === 'combo_detallado' && 'Ej: Media caja de cigarros (10 unidades), bolsa de 5 panes. Precio propio y descuenta del detallado.'}
               {tipoProducto === 'unidad' && 'Ej: Harina, refresco, paquete cerrado, caja completa.'}
             </span>
           </div>
+
+          {/* Configuración si es Combo Detallado (Media Caja, Paquete fraccionado) */}
+          {tipoProducto === 'combo_detallado' && (
+            <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '0.85rem', borderRadius: '8px' }}>
+              <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#60A5FA', display: 'block', marginBottom: '0.35rem' }}>
+                  ¿De qué producto detallado (suelto) se descuenta este combo? (Ej. Cigarros Sueltos)
+                </label>
+                <SearchableProductSelect
+                  productos={detalladosDisponibles}
+                  value={detalladoOrigenId}
+                  onChange={(selectedId) => setDetalladoOrigenId(selectedId)}
+                  placeholder="Selecciona el producto detallado origen..."
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#60A5FA' }}>
+                  ¿Cuántas unidades detalladas descuenta cada venta de este combo?
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={unidadesQueConsume}
+                  onChange={e => setUnidadesQueConsume(Math.max(1, parseInt(e.target.value) || 1))}
+                  placeholder="Ej. 10 para Media Caja de cigarros"
+                  required={tipoProducto === 'combo_detallado'}
+                  style={{ minHeight: '44px' }}
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '3px' }}>
+                  Al vender este producto en Caja a su propio precio, el sistema descontará automáticamente <strong>{unidadesQueConsume}</strong> unidades sueltas del producto detallado seleccionado.
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Configuración si es Detallado */}
           {tipoProducto === 'detallado' && (

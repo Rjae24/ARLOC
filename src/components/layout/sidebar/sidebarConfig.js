@@ -35,9 +35,13 @@ export const adminNavigationGroups = [
   },
   {
     id: 'inventario',
-    label: 'Inventario de Productos',
+    label: 'Inventario',
     icon: HiOutlineCube,
-    to: '/inventario',
+    items: [
+      { to: '/inventario', label: 'Catálogo de Productos' },
+      { to: '/inventario/operaciones', label: 'Historial de Operaciones' },
+      { to: '/inventario/reportes', label: 'Reportes y Rotación' },
+    ],
   },
   {
     id: 'compras',

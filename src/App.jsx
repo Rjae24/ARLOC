@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import POS from './pages/POS';
 import Inventario from './pages/Inventario';
+import HistorialOperacionesInventario from './pages/HistorialOperacionesInventario';
 import ReportesInventario from './pages/ReportesInventario';
 import Clientes from './pages/Clientes';
 import CuentasPorCobrar from './pages/CuentasPorCobrar';
@@ -58,6 +59,9 @@ function AppRoutes() {
         } />
         <Route path="/inventario" element={
           <ProtectedRoute requiereAdmin><Inventario /></ProtectedRoute>
+        } />
+        <Route path="/inventario/operaciones" element={
+          <ProtectedRoute requiereAdmin><HistorialOperacionesInventario /></ProtectedRoute>
         } />
         <Route path="/inventario/reportes" element={
           <ProtectedRoute requiereAdmin><ReportesInventario /></ProtectedRoute>

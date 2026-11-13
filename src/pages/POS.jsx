@@ -8,6 +8,8 @@ import { fetchTasaBCV } from '../services/bcvService';
 import { mergeClienteCredito } from '../services/cuentasCobrarService';
 import { contabilizarVentaEnTiempoReal } from '../services/contabilidadAutomatizacionService';
 import { parseProductoMeta } from '../utils/productoMetaUtils';
+import { asegurarStockConAutoUnbox } from '../services/posInventoryBridgeService';
+import { registrarMovimientoInventario } from '../services/kardexService';
 import { HiOutlineArrowPath } from 'react-icons/hi2';
 
 // Subcomponentes modulares de Caja
@@ -558,6 +560,24 @@ export default function POS() {
 
     setLoading(true);
     try {
+      // 1. Asegurar disponibilidad de stock y ejecutar Auto-Unbox (abrir cajas automáticas si falta detallado)
+      for (const item of carrito) {
+        try {
+          const resultadoStock = await asegurarStockConAutoUnbox({
+            productoId: item.producto_id,
+            cantidadRequerida: item.cantidad,
+            usuarioId: profile.id,
+          });
+          if (resultadoStock.autoUnboxed && resultadoStock.mensaje) {
+            toast(resultadoStock.mensaje, { icon: '📦', duration: 4000 });
+          }
+        } catch (stockError) {
+          toast.error(stockError.message);
+          setLoading(false);
+          return;
+        }
+      }
+
       const { data: numData, error: numError } = await supabase.rpc('generar_numero_factura');
       if (numError) throw numError;
 
@@ -698,6 +718,44 @@ export default function POS() {
           if (detRetryError) throw detRetryError;
         } else {
           throw detError;
+        }
+      }
+
+      // Registrar auditoría de salida por venta en el Kárdex para cada ítem
+      for (const item of carrito) {
+        const meta = parseProductoMeta(item);
+        if (meta.esComboDetallado && meta.detalladoOrigenId) {
+          // Descontar las unidades del detallado origen físicamente
+          const cantDetallada = item.cantidad * (meta.unidadesQueConsume || 1);
+          supabase.from('productos').select('stock').eq('id', meta.detalladoOrigenId).single().then(({ data: origProd }) => {
+            if (origProd) {
+              const nuevoStock = Math.max(0, Number(origProd.stock || 0) - cantDetallada);
+              supabase.from('productos').update({ stock: nuevoStock }).eq('id', meta.detalladoOrigenId).then(() => {
+                registrarMovimientoInventario({
+                  productoId: meta.detalladoOrigenId,
+                  tipo: 'venta',
+                  cantidad: -cantDetallada,
+                  stockAnterior: Number(origProd.stock || 0),
+                  stockNuevo: nuevoStock,
+                  referencia: `Venta ${numData} (Vía Combo: ${item.producto_nombre})`,
+                  usuarioId: profile.id,
+                  detalles: { factura_id: factura.id, combo_id: item.producto_id },
+                });
+              });
+            }
+          });
+        } else {
+          // Movimiento de venta estándar
+          registrarMovimientoInventario({
+            productoId: item.producto_id,
+            tipo: 'venta',
+            cantidad: -item.cantidad,
+            stockAnterior: Number(item.stock_disponible || 0),
+            stockNuevo: Math.max(0, Number(item.stock_disponible || 0) - item.cantidad),
+            referencia: `Venta Factura ${numData}`,
+            usuarioId: profile.id,
+            detalles: { factura_id: factura.id },
+          });
         }
       }
 

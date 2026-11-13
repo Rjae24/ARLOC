@@ -268,6 +268,19 @@ export default function Inventario() {
                 const meta = parseProductoMeta(p);
                 const esPeso = meta.unidad === 'kg';
                 const esDetallado = meta.esDetallado;
+                const esComboDetallado = meta.esComboDetallado;
+
+                // Para combo detallado, calcular el stock virtual disponible a partir del detallado origen
+                let stockMostrar = p.stock;
+                let textoUnidad = esPeso ? 'kg' : (esDetallado ? 'und (sueltas)' : 'und');
+                if (esComboDetallado) {
+                  const prodOrigen = productos.find(x => x.id === meta.detalladoOrigenId);
+                  const stockOrigen = Number(prodOrigen?.stock || 0);
+                  const unidadesConsumo = meta.unidadesQueConsume || 1;
+                  const combosDisponibles = Math.floor(stockOrigen / unidadesConsumo);
+                  stockMostrar = combosDisponibles;
+                  textoUnidad = `disp (${stockOrigen} sueltas)`;
+                }
 
                 return (
                   <tr key={p.id}>
@@ -278,6 +291,11 @@ export default function Inventario() {
                         {esDetallado && (
                           <div style={{ fontSize: '0.74rem', color: 'var(--primary, #10B981)', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '2px' }}>
                             <span>✂️ Detallado (Factor: {meta.factor || 1}/empaque)</span>
+                          </div>
+                        )}
+                        {esComboDetallado && (
+                          <div style={{ fontSize: '0.74rem', color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '2px' }}>
+                            <span>🧩 Combo (Consume {meta.unidadesQueConsume || 10} detallados por venta)</span>
                           </div>
                         )}
                         {esPeso && (
@@ -299,8 +317,8 @@ export default function Inventario() {
                       )}
                     </td>
                     <td>
-                      <span className={`badge ${p.stock <= p.stock_minimo ? (p.stock === 0 ? 'badge--danger' : 'badge--warning') : 'badge--success'}`}>
-                        {p.stock} {esPeso ? 'kg' : (esDetallado ? 'und (sueltas)' : 'und')}
+                      <span className={`badge ${stockMostrar <= p.stock_minimo ? (stockMostrar === 0 ? 'badge--danger' : 'badge--warning') : 'badge--success'}`}>
+                        {stockMostrar} {textoUnidad}
                       </span>
                     </td>
                     <td>

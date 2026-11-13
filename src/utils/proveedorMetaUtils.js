@@ -40,3 +40,4 @@ export function encodeProveedorDireccion(direccionLimpia, productosIds = []) {
   const metaStr = `${PROV_META_TAG}${JSON.stringify(productosIds)}${PROV_META_END}`;
   return dir ? `${dir}\n${metaStr}` : metaStr;
 }
+
