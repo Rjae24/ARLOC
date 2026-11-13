@@ -29,19 +29,16 @@ export const adminNavigationGroups = [
     items: [
       { to: '/pos', label: 'Punto de Venta (Caja)' },
       { to: '/historial', label: 'Historial de Ventas' },
+      { to: '/inventario/operaciones', label: 'Historial de Operaciones' },
       { to: '/clientes', label: 'Directorio de Clientes' },
       { to: '/cuentas-por-cobrar', label: 'Control de Fiados (CxC)' },
     ],
   },
   {
     id: 'inventario',
-    label: 'Inventario',
+    label: 'Inventario de Productos',
     icon: HiOutlineCube,
-    items: [
-      { to: '/inventario', label: 'Catálogo de Productos' },
-      { to: '/inventario/operaciones', label: 'Historial de Operaciones' },
-      { to: '/inventario/reportes', label: 'Reportes y Rotación' },
-    ],
+    to: '/inventario',
   },
   {
     id: 'compras',

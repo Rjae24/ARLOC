@@ -54,3 +54,4 @@ export async function fetchMovimientosInventario({ limit = 100, productoId = nul
     return [];
   }
 }
+

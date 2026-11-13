@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { formatUSD, formatBs, formatFecha } from '../utils/formatters';
 import { parseProductoMeta } from '../utils/productoMetaUtils';
+import { exportarInventarioAExcel } from '../utils/inventarioExportUtils';
 import toast from 'react-hot-toast';
 import Pagination from '../components/common/Pagination';
 import {
   HiOutlinePlus, HiOutlinePencilSquare, HiOutlineTrash,
   HiOutlineMagnifyingGlass, HiOutlineFunnel, HiOutlineTag, HiOutlineDocumentChartBar,
-  HiOutlineCube,
+  HiOutlineCube, HiOutlineArrowDownTray,
 } from 'react-icons/hi2';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ModalImprimirEtiquetas from '../components/print/ModalImprimirEtiquetas';
@@ -190,6 +191,10 @@ export default function Inventario() {
     setShowEtiquetasModal(true);
   }
 
+  function handleExportarExcel() {
+    exportarInventarioAExcel({ productos, tasaActual });
+  }
+
   const productosFiltrados = productos.filter(p => {
     const matchSearch = !search ||
       p.nombre.toLowerCase().includes(search.toLowerCase()) ||
@@ -216,6 +221,9 @@ export default function Inventario() {
           <p className="page__subtitle">{productos.length} productos registrados</p>
         </div>
         <div className="page__actions">
+          <button className="btn btn--secondary" onClick={handleExportarExcel} title="Descargar lista de precios y stock actual en Excel">
+            <HiOutlineArrowDownTray /> Exportar Excel
+          </button>
           <Link className="btn btn--secondary" to="/inventario/reportes">
             <HiOutlineDocumentChartBar /> Reportes
           </Link>
