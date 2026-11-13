@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { parseProductoMeta, encodeProductoMeta } from '../../utils/productoMetaUtils';
+import SearchableProductSelect from '../common/SearchableProductSelect';
 
 export default function ModalProductoForm({
   show,
@@ -122,23 +123,16 @@ export default function ModalProductoForm({
           {/* Configuración si es Detallado */}
           {tipoProducto === 'detallado' && (
             <div style={{ background: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.3)', padding: '0.85rem', borderRadius: '8px' }}>
-              <div className="form-group" style={{ marginBottom: '0.5rem' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#FACC15' }}>
-                  ¿De qué empaque cerrado proviene este producto?
+              <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#FACC15', display: 'block', marginBottom: '0.35rem' }}>
+                  ¿De qué empaque cerrado proviene este producto? (Escribe para buscar)
                 </label>
-                <select
+                <SearchableProductSelect
+                  productos={empaquesDisponibles}
                   value={padreId}
-                  onChange={e => setPadreId(e.target.value)}
-                  required={tipoProducto === 'detallado'}
-                  style={{ minHeight: '44px' }}
-                >
-                  <option value="">Selecciona el empaque cerrado...</option>
-                  {empaquesDisponibles.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre} (Stock actual: {p.stock} empaques)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(selectedId) => setPadreId(selectedId)}
+                  placeholder="Escribe el nombre o SKU del empaque cerrado..."
+                />
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>

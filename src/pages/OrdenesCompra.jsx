@@ -5,6 +5,8 @@ import { formatUSD, formatFecha } from '../utils/formatters';
 import { ESTADOS_ORDEN } from '../utils/constants';
 import toast from 'react-hot-toast';
 import Pagination from '../components/common/Pagination';
+import SearchableProductSelect from '../components/common/SearchableProductSelect';
+import { parseProveedorProductos } from '../utils/proveedorMetaUtils';
 import {
   HiOutlinePlus, HiOutlineCheckCircle, HiOutlineXCircle,
   HiOutlineEye, HiOutlineTrash, HiOutlineMagnifyingGlass,
@@ -31,7 +33,11 @@ export default function OrdenesCompra() {
       supabase.from('productos').select('id, nombre, sku').eq('activo', true).order('nombre'),
     ]);
     setOrdenes(ordRes.data || []);
-    setProveedores(provRes.data || []);
+    const provsConProds = (provRes.data || []).map(p => ({
+      ...p,
+      productos_ids: parseProveedorProductos(p),
+    }));
+    setProveedores(provsConProds);
     setProductos(prodRes.data || []);
     setLoading(false);
   }
@@ -103,6 +109,18 @@ export default function OrdenesCompra() {
     const { data } = await supabase.from('detalles_orden_compra').select('*, productos(nombre, sku)').eq('orden_id', orden.id);
     setShowDetalle({ ...orden, detalles: data || [] });
   }
+
+  // Filtrar productos según el proveedor seleccionado (si el proveedor tiene productos asociados)
+  const proveedorActual = proveedores.find(p => p.id === form.proveedor_id);
+  const productosFiltrados = (() => {
+    if (!proveedorActual) return productos;
+    // Si el proveedor tiene productos_ids configurados en su metadata o columna
+    const prodsAsociados = proveedorActual.productos_ids || proveedorActual.metadata?.productos_ids;
+    if (Array.isArray(prodsAsociados) && prodsAsociados.length > 0) {
+      return productos.filter(p => prodsAsociados.includes(p.id));
+    }
+    return productos;
+  })();
 
   const pageSize = 20;
   const ordenesPaginadas = ordenes.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -214,11 +232,13 @@ export default function OrdenesCompra() {
               {form.items.map((item, index) => (
                 <div key={index} className="form-row" style={{ alignItems: 'end' }}>
                   <div className="form-group" style={{ flex: 2 }}>
-                    <label>Producto</label>
-                    <select value={item.producto_id} onChange={e => updateItem(index, 'producto_id', e.target.value)} required>
-                      <option value="">Seleccionar...</option>
-                      {productos.map(p => <option key={p.id} value={p.id}>{p.nombre} ({p.sku})</option>)}
-                    </select>
+                    <label>Producto (Escribe para buscar)</label>
+                    <SearchableProductSelect
+                      productos={productosFiltrados}
+                      value={item.producto_id}
+                      onChange={(selectedId) => updateItem(index, 'producto_id', selectedId)}
+                      placeholder={proveedorActual ? "Escribe el producto de este proveedor..." : "Escribe nombre o SKU..."}
+                    />
                   </div>
                   <div className="form-group">
                     <label>Cantidad</label>

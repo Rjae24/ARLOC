@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatFecha, getWhatsAppUrl, getPhoneCallUrl } from '../utils/formatters';
+import { parseProveedorProductos, getDireccionLimpia, encodeProveedorDireccion } from '../utils/proveedorMetaUtils';
 import toast from 'react-hot-toast';
 import Pagination from '../components/common/Pagination';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -9,40 +10,66 @@ import { FaWhatsapp, FaPhone } from 'react-icons/fa';
 
 export default function Proveedores() {
   const [proveedores, setProveedores] = useState([]);
+  const [productosDisponibles, setProductosDisponibles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editando, setEditando] = useState(null);
-  const [form, setForm] = useState({ nombre: '', rif: '', telefono: '', email: '', direccion: '', contacto_nombre: '', activo: true });
+  const [form, setForm] = useState({
+    nombre: '', rif: '', telefono: '', email: '', direccion: '', contacto_nombre: '', activo: true, productos_ids: []
+  });
+  const [busquedaProdModal, setBusquedaProdModal] = useState('');
   const [provToDelete, setProvToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => { loadProveedores(); }, []);
+  useEffect(() => { loadData(); }, []);
 
-  async function loadProveedores() {
+  async function loadData() {
     setLoading(true);
-    const { data } = await supabase.from('proveedores').select('*').order('nombre');
-    setProveedores(data || []);
+    const [provRes, prodRes] = await Promise.all([
+      supabase.from('proveedores').select('*').order('nombre'),
+      supabase.from('productos').select('id, nombre, sku').eq('activo', true).order('nombre'),
+    ]);
+
+    const proveedoresProcesados = (provRes.data || []).map(p => ({
+      ...p,
+      productos_ids: parseProveedorProductos(p),
+      direccionLimpia: getDireccionLimpia(p.direccion),
+    }));
+
+    setProveedores(proveedoresProcesados);
+    setProductosDisponibles(prodRes.data || []);
     setLoading(false);
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     try {
+      const direccionConMeta = encodeProveedorDireccion(form.direccion, form.productos_ids);
+      const payload = {
+        nombre: form.nombre.trim(),
+        rif: form.rif.trim().toUpperCase(),
+        telefono: form.telefono?.trim() || null,
+        email: form.email?.trim() || null,
+        direccion: direccionConMeta || null,
+        contacto_nombre: form.contacto_nombre?.trim() || null,
+        activo: Boolean(form.activo),
+      };
+
       if (editando) {
-        const { error } = await supabase.from('proveedores').update(form).eq('id', editando.id);
+        const { error } = await supabase.from('proveedores').update(payload).eq('id', editando.id);
         if (error) throw error;
         toast.success('Proveedor actualizado');
       } else {
-        const { error } = await supabase.from('proveedores').insert(form);
+        const { error } = await supabase.from('proveedores').insert(payload);
         if (error) throw error;
         toast.success('Proveedor creado');
       }
       setShowModal(false);
       setEditando(null);
       resetForm();
-      loadProveedores();
+      loadData();
     } catch (error) {
       toast.error(error.message);
     }
@@ -57,7 +84,7 @@ export default function Proveedores() {
       if (error) throw error;
       toast.success(`Proveedor "${provToDelete.nombre}" eliminado`);
       setProvToDelete(null);
-      loadProveedores();
+      loadData();
     } catch (err) {
       toast.error(err.message || 'Error al eliminar proveedor');
     } finally {
@@ -67,12 +94,33 @@ export default function Proveedores() {
 
   function editarProveedor(p) {
     setEditando(p);
-    setForm({ nombre: p.nombre, rif: p.rif, telefono: p.telefono || '', email: p.email || '', direccion: p.direccion || '', contacto_nombre: p.contacto_nombre || '', activo: p.activo });
+    setForm({
+      nombre: p.nombre,
+      rif: p.rif,
+      telefono: p.telefono || '',
+      email: p.email || '',
+      direccion: p.direccionLimpia || getDireccionLimpia(p.direccion) || '',
+      contacto_nombre: p.contacto_nombre || '',
+      activo: p.activo,
+      productos_ids: p.productos_ids || parseProveedorProductos(p) || [],
+    });
+    setBusquedaProdModal('');
     setShowModal(true);
   }
 
   function resetForm() {
-    setForm({ nombre: '', rif: '', telefono: '', email: '', direccion: '', contacto_nombre: '', activo: true });
+    setForm({
+      nombre: '', rif: '', telefono: '', email: '', direccion: '', contacto_nombre: '', activo: true, productos_ids: []
+    });
+    setBusquedaProdModal('');
+  }
+
+  function toggleProductoProveedor(prodId) {
+    setForm(prev => {
+      const existe = prev.productos_ids.includes(prodId);
+      const nuevos = existe ? prev.productos_ids.filter(id => id !== prodId) : [...prev.productos_ids, prodId];
+      return { ...prev, productos_ids: nuevos };
+    });
   }
 
   const filtrados = proveedores.filter(p =>
@@ -180,6 +228,78 @@ export default function Proveedores() {
                 <label>Dirección</label>
                 <input value={form.direccion} onChange={e => setForm({...form, direccion: e.target.value})} />
               </div>
+
+              {/* Selector de Catálogo de Productos que vende este Proveedor */}
+              <div style={{ marginTop: '0.5rem', marginBottom: '1rem', background: 'rgba(255, 255, 255, 0.03)', padding: '0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                    📦 Catálogo de Productos que despacha ({form.productos_ids.length} seleccionados)
+                  </label>
+                  {form.productos_ids.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--xs"
+                      onClick={() => setForm({ ...form, productos_ids: [] })}
+                      style={{ fontSize: '0.75rem', color: 'var(--danger)' }}
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={busquedaProdModal}
+                    onChange={e => setBusquedaProdModal(e.target.value)}
+                    placeholder="Filtrar catálogo por nombre o SKU..."
+                    style={{ fontSize: '0.85rem', padding: '0.45rem 0.65rem' }}
+                  />
+                </div>
+
+                <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '3px', paddingRight: '4px' }}>
+                  {productosDisponibles
+                    .filter(p => !busquedaProdModal || p.nombre?.toLowerCase().includes(busquedaProdModal.toLowerCase()) || p.sku?.toLowerCase().includes(busquedaProdModal.toLowerCase()))
+                    .slice(0, 50)
+                    .map(p => {
+                      const checked = form.productos_ids.includes(p.id);
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => toggleProductoProveedor(p.id)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.35rem 0.5rem',
+                            borderRadius: '5px',
+                            cursor: 'pointer',
+                            background: checked ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+                            border: checked ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
+                            fontSize: '0.84rem',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {}} // Manejado por onClick del contenedor
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <span style={{ fontWeight: checked ? 600 : 400, color: checked ? 'var(--primary)' : 'var(--text-primary)' }}>
+                            {p.nombre}
+                          </span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: 'auto' }}>
+                            {p.sku}
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.4rem' }}>
+                  💡 Si no marcas ninguno, se mostrará todo el catálogo en las órdenes de compra.
+                </span>
+              </div>
+
               <div className="form-group">
                 <label className="checkbox-label"><input type="checkbox" checked={form.activo} onChange={e => setForm({...form, activo: e.target.checked})} /> Proveedor activo</label>
               </div>
